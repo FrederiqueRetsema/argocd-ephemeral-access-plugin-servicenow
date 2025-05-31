@@ -9,9 +9,9 @@ Extension, version `v0.1.6`. I will keep the plugin out of the discussion, more
 about that can be read in a specific example configuration for the plugin.
 
 In this example I will walk you through the different settings that are used by
-the extension. For this demo I'm assuming that you installed argocd in
-namespace `argocd` and that you installed the Ephemeral Access Extension in the
-namespace `argocd-ephemeral-access`.
+the extension, I will focus on the permissions within ArgoCD. For this demo I'm
+assuming that you installed argocd in namespace `argocd` and that you installed
+the Ephemeral Access Extension in the namespace `argocd-ephemeral-access`.
 
 For a demo CloudFormation template that deploys a three node Kubernetes
 environment with the Ephemeral Access Extension in AWS you can use my Github
@@ -23,13 +23,13 @@ like.
 ## Login (arrow 1)
 
 Let's first look at the design that is part of the README.md of the Github
-repository [2]:
+repository of the Ephemeral Access Extension[2]:
 
 ![Design](https://github.com/argoproj-labs/argocd-ephemeral-access/raw/main/docs/assets/EphemeralAccessExtensionDiagram.png)
 
 Users have to log on to ArgoCD using OIDC. When you didn't configure
 this yet, you can read my blog on the Conclusion Xforce Tech Playground about
-this [2].
+this [3].
 
 The groups are configured in the rbac configuration:
 
