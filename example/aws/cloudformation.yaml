@@ -776,7 +776,7 @@ Resources:
                   mkdir -p /clone
                   cd /clone
                   git clone https://github.com/argoproj-labs/argocd-ephemeral-access.git
-                  git clone https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-test
+                  git clone https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow
                 }
 
                 function change_hostname() {
@@ -1020,7 +1020,7 @@ Resources:
                 function build_plugin() {
                   show_function "build_plugin"
 
-                  cd /clone/argocd-ephemeral-access-plugin-test/
+                  cd /clone/argocd-ephemeral-access-plugin-servicenow/
                   nerdctl build -t plugin:latest .
 
                   aws ecr get-login-password --region ${AWS::Region} | nerdctl login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
@@ -1034,9 +1034,9 @@ Resources:
                   nerdctl push ${EphemeralAccessPluginECRRepository.RepositoryUri}:latest
                   
                   # There is a slash in the repository definition of AWS, therefore use ^ instead of (commonly used) / in sed s
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^${EphemeralAccessPluginECRRepository.RepositoryUri}:latest^g' /clone/argocd-ephemeral-access-plugin-test/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-test/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-test/manifests/plugin/controller-patch.yaml
+                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^${EphemeralAccessPluginECRRepository.RepositoryUri}:latest^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
+                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
+                  sed -i 's^CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
                 }
 
                 function install_argocd() {
@@ -1112,7 +1112,7 @@ Resources:
                 function install_plugin() {
                   show_function "install_plugin"
 
-                  cd /clone/argocd-ephemeral-access-plugin-test
+                  cd /clone/argocd-ephemeral-access-plugin-servicenow
                   kustomize build ./manifests | kubectl apply -f -
 
                   kubectl apply -f /opt/xforce/remove-accessrequest-job-sa.yaml

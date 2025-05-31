@@ -28,6 +28,9 @@ import (
 	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
+const correctCMDBInstallStatus = "1"
+const addChange = true
+
 type HelperMethodsTestSuite struct {
 	suite.Suite
 }
@@ -171,22 +174,6 @@ func testGetPlugin() (*ServiceNowPlugin, *MockedLogger) {
 	return p, loggerObj
 }
 
-func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultNoEnvVar() {
-	t := s.T()
-
-	p, loggerObj := testGetPlugin()
-	expectedErrorText := "Panic!"
-
-	serviceNowUrl = ""
-	_ = os.Setenv("SERVICENOW_URL", "")
-	loggerObj.On("Error", expectedErrorText)
-
-	_, errorText := p.getEnvVarWithoutDefault("SERVICENOW_URL", expectedErrorText)
-
-	s.Equal(expectedErrorText, errorText, "Error text should be the expected errortext")
-	loggerObj.AssertExpectations(t)
-}
-
 func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultWithEnvVar() {
 	t := s.T()
 
@@ -202,17 +189,19 @@ func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultWithEnvVar() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *HelperMethodsTestSuite) TestGetEnvVarWithDefaultNoEnvVar() {
+func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultWithoutEnvVar() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	expectedErrorText := "Expected error"
 
-	_ = os.Setenv("TIMEZONE", "")
-	loggerObj.On("Debug", "Environment variable TIMEZONE is empty, assuming UTC")
+	serviceNowUrl = ""
+	_ = os.Setenv("SERVICENOW_URL", "")
+	loggerObj.On("Error", expectedErrorText)
 
-	timezone := p.getEnvVarWithDefault("TIMEZONE", "UTC")
+	_, errorText := p.getEnvVarWithoutDefault("SERVICENOW_URL", expectedErrorText)
 
-	s.Equal("UTC", timezone, "Assumed UTC correctly")
+	s.Equal(expectedErrorText, errorText, "Error text should be the expected errortext")
 	loggerObj.AssertExpectations(t)
 }
 
@@ -225,6 +214,20 @@ func (s *HelperMethodsTestSuite) TestGetEnvVarWithDefaultWithEnvVar() {
 	timezone := p.getEnvVarWithDefault("TIMEZONE", "UTC")
 
 	s.Equal("Amsterdam/Europe", timezone, "Environment TIMEZONE was filled, Retrieved Amsterdam/Europe correctly")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *HelperMethodsTestSuite) TestGetEnvVarWithDefaultWithoutEnvVar() {
+	t := s.T()
+
+	p, loggerObj := testGetPlugin()
+
+	_ = os.Setenv("TIMEZONE", "")
+	loggerObj.On("Debug", "Environment variable TIMEZONE is empty, assuming UTC")
+
+	timezone := p.getEnvVarWithDefault("TIMEZONE", "UTC")
+
+	s.Equal("UTC", timezone, "Assumed UTC correctly")
 	loggerObj.AssertExpectations(t)
 }
 
@@ -297,9 +300,9 @@ func (s *HelperMethodsTestSuite) TestConvertToIntSuccess() {
 	p, loggerObj := testGetPlugin()
 
 	str := "1"
-	outcome := p.convertToInt("Test set", str, 0)
+	result := p.convertToInt("Test set", str, 0)
 
-	s.Equal(1, outcome, "Assuming string \"1\" to be 1")
+	s.Equal(1, result, `Assuming string "1" to be 1`)
 	loggerObj.AssertExpectations(t)
 }
 
@@ -311,9 +314,9 @@ func (s *HelperMethodsTestSuite) TestConvertToIntFail() {
 	loggerObj.On("Error", expectedErrorText)
 
 	str := "test"
-	outcome := p.convertToInt("Test set", str, 0)
+	result := p.convertToInt("Test set", str, 0)
 
-	s.Equal(0, outcome, "Assuming string \"test\" to become default 0")
+	s.Equal(0, result, `Assuming string "test" to become default 0`)
 	loggerObj.AssertExpectations(t)
 }
 
@@ -321,7 +324,20 @@ func TestHelperMethods(t *testing.T) {
 	suite.Run(t, new(HelperMethodsTestSuite))
 }
 
-func (s *K8SRelatedTestSuite) TestGetK8sConfig() {
+func (s *K8SRelatedTestSuite) TestGetK8sConfigInUnittest() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	// Will always return error text because the tests are not run from within a Kubernetes cluster
+	unittest = true
+
+	errorText := p.getK8sConfig()
+	s.Equal("", errorText, "Run in unittest should be successful")
+
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *K8SRelatedTestSuite) TestGetK8sConfigOutsideKubernetes() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 	loggerObj.On("Error", mock.Anything) // Has different output local and in the pipeline, so just ignore
@@ -377,16 +393,35 @@ func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecretSecretDoesntExist() {
 
 	secretName = "does-not-exist"
 	expectedErrorText := fmt.Sprintf("Error getting secret %s, does secret exist in namespace %s?", secretName, namespace)
+
 	loggerObj.On("Debug", fmt.Sprintf("Get credentials from secret [%s]%s...", namespace, secretName))
 	loggerObj.On("Error", expectedErrorText)
 
 	_, _, errorText := p.getCredentialsFromSecret(namespace, secretName, "username", "password")
 
-	s.Equal(expectedErrorText, errorText, "Expect to get back the correct errortext")
+	s.Equal(expectedErrorText, errorText, "Errortext should be correct")
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMap() {
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithOneExclusion() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	namespace := "argocd-ephemeral-access"
+	exclusionsString := "administrator"
+
+	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
+	loggerObj.On("Debug", "Exclusions used: "+exclusionsString)
+
+	k8sclientset = testclient.NewClientset()
+	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", exclusionsString)
+	exclusions := p.getExclusionsFromConfigMap(namespace)
+
+	s.Equal([]string{"administrator"}, exclusions)
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithTwoExclusions() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
@@ -394,14 +429,48 @@ func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMap() {
 	exclusionsString := "administrator\nincidentmanager"
 
 	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
-	loggerObj.On("Debug", "Exclusions found: "+exclusionsString)
+	loggerObj.On("Debug", "Exclusions used: "+exclusionsString)
 
 	k8sclientset = testclient.NewClientset()
 	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", exclusionsString)
-	exceptions, errorText := p.getExclusionsFromConfigMap(namespace)
+	exclusions := p.getExclusionsFromConfigMap(namespace)
 
-	s.Equal([]string{"administrator", "incidentmanager"}, exceptions)
-	s.Equal("", errorText, "No errors expected")
+	s.Equal([]string{"administrator", "incidentmanager"}, exclusions)
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithConfigMapWithoutExclusions() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	namespace := "argocd-ephemeral-access"
+	exclusionsString := ""
+
+	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
+	loggerObj.On("Debug", "Exclusions used: "+exclusionsString)
+
+	k8sclientset = testclient.NewClientset()
+	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", exclusionsString)
+	exclusions := p.getExclusionsFromConfigMap(namespace)
+
+	s.Equal([]string{""}, exclusions, "No exclusions")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithoutConfigMap() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	namespace := "argocd-ephemeral-access"
+
+	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
+	loggerObj.On("Debug", "Error getting configmap controller-cm, does configmap exist in namespace argocd-ephemeral-access?")
+	loggerObj.On("Debug", "No exclusions used")
+
+	k8sclientset = testclient.NewClientset()
+	exclusions := p.getExclusionsFromConfigMap(namespace)
+
+	s.Equal([]string{}, exclusions)
 	loggerObj.AssertExpectations(t)
 }
 
@@ -464,31 +533,6 @@ func (s *PluginHelperMethodsTestSuite) TestGetGlobalVarsExclusionGroupsWithValue
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *PluginHelperMethodsTestSuite) TestGetGlobalVarsExclusionRolesWithTwoValues() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	exampleUrl := "https://example.com"
-	_ = os.Setenv("SERVICENOW_URL", exampleUrl)
-
-	secretName := "servicenow-secret"
-	namespace := "argocd-ephemeral-access"
-	testUsername := "my-username"
-	testPassword := "my-password"
-
-	k8sclientset = testclient.NewClientset()
-	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", "administrators\nincidentmanagers")
-	setSecret(namespace, secretName, testUsername, testPassword)
-
-	loggerObj.On("Debug", mock.Anything)
-
-	unittest = true
-	p.getGlobalVars()
-
-	s.Equal([]string{"administrators", "incidentmanagers"}, exclusionRoles, "Exclusion groups should be correct")
-	loggerObj.AssertExpectations(t)
-}
-
 func (s *PluginHelperMethodsTestSuite) TestShowRequest() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
@@ -496,7 +540,7 @@ func (s *PluginHelperMethodsTestSuite) TestShowRequest() {
 	var ar = new(api.AccessRequest)
 	var app = new(argocd.Application)
 
-	ar.Spec.Subject.Username = "Frederique"
+	ar.Spec.Subject.Username = "Testuser"
 	ar.Spec.Role.TemplateRef.Name = "administrator"
 	ar.Spec.Application.Namespace = "argocd"
 	ar.Spec.Application.Name = "demoapp"
@@ -505,7 +549,7 @@ func (s *PluginHelperMethodsTestSuite) TestShowRequest() {
 	jsonAr, _ := json.Marshal(ar)
 	jsonApp, _ := json.Marshal(app)
 
-	loggerObj.On("Info", "Call to GrantAccess: username: Frederique, role: administrator, application: [argocd]demoapp, duration: 4h0m0s")
+	loggerObj.On("Info", "Call to GrantAccess: username: Testuser, role: administrator, application: [argocd]demoapp, duration: 4h0m0s")
 	loggerObj.On("Debug", "jsonAr: "+string(jsonAr))
 	loggerObj.On("Debug", "jsonApp: "+string(jsonApp))
 
@@ -533,7 +577,11 @@ func (s *PluginHelperMethodsTestSuite) TestCreateRevokeJobCorrect() {
 
 	p.createRevokeJob(namespace, accessRequestName, jobStartTime)
 
-	expectedSchedule := fmt.Sprintf("%d %d %d %d *", jobStartTime.Minute(), jobStartTime.Hour(), jobStartTime.Day(), jobStartTime.Month())
+	expectedSchedule := fmt.Sprintf("%d %d %d %d *",
+		jobStartTime.Minute(),
+		jobStartTime.Hour(),
+		jobStartTime.Day(),
+		jobStartTime.Month())
 	expectedCommand := []string{"sh", "-c", fmt.Sprintf("kubectl delete accessrequest -n argocd %s && kubectl delete cronjob -n argocd %s", accessRequestName, expectedJobName)}
 	cronjobs := k8sclientset.BatchV1().CronJobs(namespace)
 	myCronJob, err := cronjobs.Get(context.TODO(), expectedJobName, metav1.GetOptions{})
@@ -738,15 +786,14 @@ func setSecret(namespace string, secretName string, username string, password st
 	_, _ = k8sclientset.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 }
 
-func setConfigMap(namespace string, configmapName string, exceptionsListName string, exceptionsListValue string) {
-
+func setConfigMap(namespace string, configmapName string, exclusionsListName string, exclusionsListValue string) {
 	configMap := &coreV1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configmapName,
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			exceptionsListName: exceptionsListValue,
+			exclusionsListName: exclusionsListValue,
 		},
 	}
 
@@ -782,8 +829,7 @@ func TestPluginHelperMethods(t *testing.T) {
 	suite.Run(t, new(PluginHelperMethodsTestSuite))
 }
 
-func simulateSimpleHttpRequestToServiceNow(t *testing.T, responseMap map[string]string) *httptest.Server {
-
+func simulateHttpRequestToServiceNow(t *testing.T, responseMap map[string]string) *httptest.Server {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := ""
 
@@ -892,71 +938,6 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultBadGatewayWith200() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *ServiceNowTestSuite) TestGetFromServiceNowAPIErrorInApiCall() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	responseText := "{\"results\":[]}"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	ciName := "app-demoapp"
-
-	requestURI := fmt.Sprintf("/api/now/table/cmdb_ci?name=%s&sysparm_fields=install_status,name,sys_id", ciName)
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-	serviceNowUrl = server.URL
-
-	// requestURI is changed to something incorrect (contains serviceNowUrl which it shouldn't)
-
-	requestURI = fmt.Sprintf("%s%s", serviceNowUrl, requestURI)
-
-	// Expected apiCall contains the serviceNowUrl twice
-	apiCall := fmt.Sprintf("%s%s", serviceNowUrl, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Error", mock.Anything)
-
-	_, errorText := p.getFromServiceNowAPI(requestURI)
-	if !strings.Contains(errorText, "no such host") {
-		t.Errorf("%s should contain text no such host", errorText)
-	}
-
-	loggerObj.AssertExpectations(t)
-}
-
-func (s *ServiceNowTestSuite) TestgetFromServiceNowAPIError() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-	expectedErrorText := "ServiceNow API server is down"
-	responseText := "<html><body>Server down!</body></html>"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	requestURI := "/api/test"
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-	serviceNowUrl = server.URL
-
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
-
-	_, errorText := p.getFromServiceNowAPI(requestURI)
-	s.Equal(expectedErrorText, errorText, "Correct error text")
-	loggerObj.AssertExpectations(t)
-}
-
 func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponse() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
@@ -969,7 +950,7 @@ func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponse() {
 	var responseMap = make(map[string]string)
 	responseMap[requestURI] = responseText
 
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	defer server.Close()
 	serviceNowUrl = server.URL
 
@@ -1016,6 +997,43 @@ func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponseWithRedirect
 	loggerObj.AssertExpectations(t)
 }
 
+func (s *ServiceNowTestSuite) TestGetFromServiceNowAPIErrorInApiCall() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	responseText := "{\"results\":[]}"
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+	ciName := "app-demoapp"
+
+	requestURI := getTestCIRequestURI(ciName)
+
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	// requestURI is changed to something incorrect (contains serviceNowUrl which it shouldn't)
+
+	requestURI = fmt.Sprintf("%s%s", serviceNowUrl, requestURI)
+
+	// Expected apiCall contains the serviceNowUrl twice
+	apiCall := fmt.Sprintf("%s%s", serviceNowUrl, requestURI)
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Error", mock.Anything)
+
+	_, errorText := p.getFromServiceNowAPI(requestURI)
+	if !strings.Contains(errorText, "no such host") {
+		t.Errorf("%s should contain text no such host", errorText)
+	}
+
+	loggerObj.AssertExpectations(t)
+}
+
 // PostNote is a very simple method, so re-use the test for PatchServiceNowAPINormalRequest for both methods
 
 func testPatchServiceNowAPINormalRequest(s *ServiceNowTestSuite, requestURI string, data string, responseText string) {
@@ -1024,8 +1042,7 @@ func testPatchServiceNowAPINormalRequest(s *ServiceNowTestSuite, requestURI stri
 
 	var responseMap = make(map[string]string)
 	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	defer server.Close()
 	serviceNowUrl = server.URL
 
@@ -1056,15 +1073,11 @@ func (s *ServiceNowTestSuite) TestPatchServiceNowAPIErrorInApiCall() {
 	serviceNowUrl = "https://example.com"
 	// Incorrect requestURI containing the serviceNowUrl
 	incorrectRequestURI := fmt.Sprintf("%s/api/test/1", serviceNowUrl)
-	// Correct requestURI for simulation env
-	requestURI := fmt.Sprintf("%s/api/test/1", serviceNowUrl)
 	data := `{"test": 1, "result": "success"}`
-	responseText := `{}`
 
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
+	// No need to set up simulation server, as this will never be reached
 
-	apiCall := fmt.Sprintf("%s%s", serviceNowUrl, requestURI)
+	apiCall := fmt.Sprintf("%s%s", serviceNowUrl, incorrectRequestURI)
 	loggerObj.On("Debug", "apiCall: "+apiCall)
 	loggerObj.On("Debug", "Data: "+data)
 	loggerObj.On("Error", mock.Anything)
@@ -1076,7 +1089,31 @@ func (s *ServiceNowTestSuite) TestPatchServiceNowAPIErrorInApiCall() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *K8SRelatedTestSuite) TestGetCINameEmpty() {
+func TestServiceNowMethods(t *testing.T) {
+	suite.Run(t, new(ServiceNowTestSuite))
+}
+
+func (s *ServiceNowTestSuite) TestGetCINameFilled() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	var app = new(argocd.Application)
+	var m = make(map[string]string)
+
+	loggerObj.On("Debug", "Search for ci-name in the CMDB...")
+	loggerObj.On("Debug", "ciLabel ci-name found: app-demoapp")
+
+	ciLabel = "ci-name"
+	m[ciLabel] = "app-demoapp"
+	app.Labels = m
+
+	ciLabel := p.getCIName(app)
+
+	s.Equal("app-demoapp", ciLabel, "Label found, correct content")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *ServiceNowTestSuite) TestGetCINameEmpty() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
@@ -1094,196 +1131,15 @@ func (s *K8SRelatedTestSuite) TestGetCINameEmpty() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *K8SRelatedTestSuite) TestGetCINameFilled() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	var app = new(argocd.Application)
-	var m = make(map[string]string)
-
-	loggerObj.On("Debug", "Search for ci-name in the CMDB...")
-	loggerObj.On("Debug", "ciLabel ci-name found: app-demoapp")
-
-	ciLabel = "ci-name"
-	m[ciLabel] = "app-demoapp"
-	app.Labels = m
-
-	ciLabel := p.getCIName(app)
-
-	s.Equal("app-demoapp", ciLabel, "Label found, content app-demoapp")
-	loggerObj.AssertExpectations(t)
-}
-
-func (s *ServiceNowTestSuite) TestGetCIServerDown() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	expectedErrorText := "ServiceNow API server is down"
-	responseText := "<html><body>Server down!</body></html>"
-
+func testPrepareGetCI(t *testing.T, ciName string, responseText string) (*httptest.Server, string) {
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
-	ciName := "app-demoapp"
-	requestURI := fmt.Sprintf("/api/now/table/cmdb_ci?name=%s&sysparm_fields=install_status,name,sys_id", ciName)
+	requestURI := getTestCIRequestURI(ciName)
 
 	var responseMap = make(map[string]string)
 	responseMap[requestURI] = responseText
 
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
-	defer server.Close()
-
-	serviceNowUrl = server.URL
-
-	_, errorText := p.getCI("app-demoapp")
-	s.Equal(expectedErrorText, errorText, "Correct error")
-	loggerObj.AssertExpectations(t)
-}
-
-func (s *ServiceNowTestSuite) TestGetCINoJSON() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-	expectedErrorText := "Error in json.Unmarshal: invalid character '<' looking for beginning of value (<Result/>)"
-	responseText := "<Result/>"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	ciName := "app-demoapp"
-	requestURI := fmt.Sprintf("/api/now/table/cmdb_ci?name=%s&sysparm_fields=install_status,name,sys_id", ciName)
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
-	serviceNowUrl = server.URL
-
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
-
-	_, errorText := p.getCI(ciName)
-	s.Equal(expectedErrorText, errorText, "Correct error text")
-	loggerObj.AssertExpectations(t)
-}
-
-func (s *ServiceNowTestSuite) TestGetChangeAPIServerDown() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	responseText := "<html><body>Server down!</body></html>"
-	expectedErrorText := "ServiceNow API server is down"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	requestURI := getChangeRequestURI("1", "0")
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
-	defer server.Close()
-
-	serviceNowUrl = server.URL
-
-	//	_, _ = p.getChanges("app-demoapp", 0)
-	_, _, errorText := p.getChanges("app-demoapp", "1", 0)
-	s.Equal(expectedErrorText, errorText, "Correct error text")
-	loggerObj.AssertExpectations(t)
-}
-
-func (s *ServiceNowTestSuite) TestGetChangeNoJSON() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	responseText := "!"
-	expectedErrorText := "Error in json.Unmarshal: invalid character '!' looking for beginning of value (!)"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	ciName := "app-demoapp"
-	requestURI := getChangeRequestURI("1", "0")
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
-	serviceNowUrl = server.URL
-
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
-
-	_, _, errorText := p.getChanges(ciName, "1", 0)
-
-	s.Equal(expectedErrorText, errorText, "Correct error text")
-	loggerObj.AssertExpectations(t)
-}
-
-func TestServiceNowMethods(t *testing.T) {
-	suite.Run(t, new(ServiceNowTestSuite))
-}
-
-func (s *CITestSuite) TestGetCINoCI() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	responseText := "{\"result\":[]}"
-	expectedErrorText := "No CI with name app-demoapp found"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	ciName := "app-demoapp"
-	requestURI := fmt.Sprintf("/api/now/table/cmdb_ci?name=%s&sysparm_fields=install_status,name,sys_id", ciName)
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
-	serviceNowUrl = server.URL
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
-
-	_, errorText := p.getCI(ciName)
-
-	s.Equal(expectedErrorText, errorText, "Expected error text is correct")
-	loggerObj.AssertExpectations(t)
-}
-
-func testPrepareGetCI(t *testing.T, loggerObj *MockedLogger, ciName string, responseText string) (*httptest.Server, string) {
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	requestURI := fmt.Sprintf("/api/now/table/cmdb_ci?name=%s&sysparm_fields=install_status,name,sys_id", ciName)
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	serviceNowUrl = server.URL
 
 	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
@@ -1297,7 +1153,7 @@ func (s *CITestSuite) TestGetCIOneCI() {
 
 	ciName := "app-demoapp"
 	responseText := fmt.Sprintf(`{"result":[{"install_status":"1", "name":"%s", "sys_id": "5"}]}`, ciName)
-	server, apiCall := testPrepareGetCI(t, loggerObj, ciName, responseText)
+	server, apiCall := testPrepareGetCI(t, ciName, responseText)
 	defer server.Close()
 
 	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
@@ -1318,9 +1174,10 @@ func (s *CITestSuite) TestGetCITwoCIs() {
 	p, loggerObj := testGetPlugin()
 
 	ciName := "app-demoapp"
+
 	responseText := `{"result":[{"install_status":"1", "name":"app-demoapp", "sys_id": "1"},
 	                            {"install_status":"6", "name":"app-demoapp", "sys_id": "2"}]}`
-	server, apiCall := testPrepareGetCI(t, loggerObj, ciName, responseText)
+	server, apiCall := testPrepareGetCI(t, ciName, responseText)
 	defer server.Close()
 
 	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
@@ -1335,6 +1192,96 @@ func (s *CITestSuite) TestGetCITwoCIs() {
 	loggerObj.AssertExpectations(t)
 }
 
+func (s *CITestSuite) TestGetCINoCI() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	responseText := "{\"result\":[]}"
+	expectedErrorText := "No CI with name app-demoapp found"
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+	ciName := "app-demoapp"
+
+	requestURI := getTestCIRequestURI(ciName)
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+
+	serviceNowUrl = server.URL
+	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Debug", responseText)
+	loggerObj.On("Error", expectedErrorText)
+
+	_, errorText := p.getCI(ciName)
+
+	s.Equal(expectedErrorText, errorText, "Expected error text is correct")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *ServiceNowTestSuite) TestGetCIServerDown() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	expectedErrorText := "ServiceNow API server is down"
+	responseText := "<html><body>Server down!</body></html>"
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+	ciName := "app-demoapp"
+
+	requestURI := getTestCIRequestURI(ciName)
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+
+	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Debug", responseText)
+	loggerObj.On("Error", expectedErrorText)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	_, errorText := p.getCI("app-demoapp")
+
+	s.Equal(expectedErrorText, errorText, "Correct error")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *ServiceNowTestSuite) TestGetCINoJSON() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	expectedErrorText := "Error in json.Unmarshal: invalid character '<' looking for beginning of value (<Result/>)"
+	responseText := "<Result/>"
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+	ciName := "app-demoapp"
+
+	requestURI := getTestCIRequestURI(ciName)
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Debug", responseText)
+	loggerObj.On("Error", expectedErrorText)
+
+	_, errorText := p.getCI(ciName)
+	s.Equal(expectedErrorText, errorText, "Correct error text")
+	loggerObj.AssertExpectations(t)
+}
+
 func TestCIMethods(t *testing.T) {
 	suite.Run(t, new(CITestSuite))
 }
@@ -1343,7 +1290,7 @@ func getHttpDateTime(t time.Time) string {
 	return fmt.Sprintf("%04d%%2d%02d%%2d%02d", t.Year(), t.Month(), t.Day())
 }
 
-func getExpectedRequestURI(cmdb_ci string, startDate time.Time, endDate time.Time, sysparmOffset string) string {
+func getExpectedRequestURI(cmdb_ci string, startDate time.Time, endDate time.Time, sysparmOffset int) string {
 	requestURIStart := "/api/now/table/change_request?sysparm_query=cmdb_ci%3d" + cmdb_ci + "%5estate%3d%2d1%5ephase%3drequested%5eapproval%3dapproved%5eactive%3dtrue"
 
 	startDateHttpString := getHttpDateTime(startDate)
@@ -1353,7 +1300,8 @@ func getExpectedRequestURI(cmdb_ci string, startDate time.Time, endDate time.Tim
 	requestURIStartDatePart := "GOTOstart_date%3e" + startDateHttpString + "%20" + firstTimeString
 	requestURIEndDatePart := "GOTOend_date%3c" + endDateHttpString + "%20" + lastTimeString
 
-	requestURIEnd := "&sysparm_fields=type,number,short_description,start_date,end_date,sys_id&sysparm_limit=5&sysparm_offset=" + sysparmOffset
+	sysparmOffsetString := fmt.Sprintf("%d", sysparmOffset)
+	requestURIEnd := "&sysparm_fields=type,number,short_description,start_date,end_date,sys_id&sysparm_limit=5&sysparm_offset=" + sysparmOffsetString
 
 	return requestURIStart + "%5e" + requestURIStartDatePart + "%5e" + requestURIEndDatePart + requestURIEnd
 }
@@ -1368,7 +1316,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow0Days() {
 	timeWindowChangesDays = 0
 	startDate := time.Now() // first time of today
 	endDate := time.Now()   // last time of today
-	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, "0")
+	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, sysparmOffset)
 
 	requestURI := p.getChangeRequestURI(cmdbCi, sysparmOffset)
 
@@ -1386,7 +1334,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow1Days() {
 	timeWindowChangesDays = 1
 	startDate := time.Now().Add(-1 * 24 * time.Hour) // first time of yesterday
 	endDate := time.Now().Add(1 * 24 * time.Hour)    // last time of tomorrow
-	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, "0")
+	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, sysparmOffset)
 
 	requestURI := p.getChangeRequestURI(cmdbCi, sysparmOffset)
 
@@ -1398,13 +1346,13 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow7Days() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
-	cmdbCi := "ci3"
+	cmdbCi := "id3"
 	sysparmOffset := 0
 
 	timeWindowChangesDays = 7
 	startDate := time.Now().Add(-7 * 24 * time.Hour) // first time of last week
 	endDate := time.Now().Add(7 * 24 * time.Hour)    // last time of next week
-	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, "0")
+	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, sysparmOffset)
 
 	requestURI := p.getChangeRequestURI(cmdbCi, sysparmOffset)
 
@@ -1412,7 +1360,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow7Days() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindowOtherSysparmOffset() {
+func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindowDifferentSysparmOffset() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
@@ -1422,7 +1370,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindowOtherSysparmOffset() 
 	timeWindowChangesDays = 7
 	startDate := time.Now().Add(-7 * 24 * time.Hour) // first time of last week
 	endDate := time.Now().Add(7 * 24 * time.Hour)    // last time of next week
-	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, "5")
+	expectedRequestURI := getExpectedRequestURI(cmdbCi, startDate, endDate, sysparmOffset)
 
 	requestURI := p.getChangeRequestURI(cmdbCi, sysparmOffset)
 
@@ -1430,64 +1378,29 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindowOtherSysparmOffset() 
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *ChangeTestSuite) TestGetChangesNoChange() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	responseText := "{\"result\":[]}"
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-	ciName := "app-demoapp"
-	requestURI := getChangeRequestURI("1", "0")
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
-	serviceNowUrl = server.URL
-
-	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
-
-	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
-	loggerObj.On("Debug", responseText)
-	loggerObj.On("Info", "No changes found")
-
-	changes, newPointer, errorText := p.getChanges(ciName, "1", 0)
-
-	s.Equal(0, len(changes), "No changes should be found")
-	s.Equal(0, newPointer, "New value for offset should be 0")
-	s.Equal("No changes found", errorText, "Correct error text")
-	loggerObj.AssertExpectations(t)
-}
-
 func (s *ChangeTestSuite) TestGetChangesOneChange() {
 	t := s.T()
-
 	p, loggerObj := testGetPlugin()
-
-	ciName := "app-demoapp"
-	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"}]}`
-	requestURI := getChangeRequestURI("1", "0")
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
 
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	serviceNowUrl = server.URL
+	cmdbCi := "1chg"
+
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00", "sys_id": "1"}]}`
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	defer server.Close()
+	serviceNowUrl = server.URL
 
 	apiCall := fmt.Sprintf("%s%s", serviceNowUrl, requestURI)
 	loggerObj.On("Debug", "apiCall: "+apiCall)
 	loggerObj.On("Debug", responseText)
 
-	//	changes, number := p.getChanges(ciName, 0)
-	changes, number, errorText := p.getChanges(ciName, "1", 0)
+	changes, number, errorText := p.getChanges(cmdbCi, sysparmOffset)
 
 	s.Equal("CHG300030", changes[0].Number, "Change number should be the same as in the API result")
 	s.Equal(1, number, "Number should be incremented by the number of changes that are received")
@@ -1498,21 +1411,22 @@ func (s *ChangeTestSuite) TestGetChangesOneChange() {
 
 func (s *ChangeTestSuite) TestGetChangesTwoChanges() {
 	t := s.T()
-
 	p, loggerObj := testGetPlugin()
-
-	ciName := "app-demoapp"
-	requestURI := getChangeRequestURI("1", "0")
-	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"},
-                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00"}]}`
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
 
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	cmdbCi := "chg2"
+
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00", "sys_id": "2"},
+                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00", "sys_id": "22"}]}`
+
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	serviceNowUrl = server.URL
 	defer server.Close()
 
@@ -1520,11 +1434,13 @@ func (s *ChangeTestSuite) TestGetChangesTwoChanges() {
 	loggerObj.On("Debug", "apiCall: "+apiCall)
 	loggerObj.On("Debug", responseText)
 
-	changes, number, errorText := p.getChanges(ciName, "1", 0)
+	changes, newSysparmOffset, errorText := p.getChanges(cmdbCi, sysparmOffset)
 
 	s.Equal("CHG300030", changes[0].Number, "Change number should be the same as in the API result")
-	s.Equal(2, number, "Number should be incremented by the number of changes that are received")
+	s.Equal(2, newSysparmOffset, "SysparmOffset should be incremented by the number of changes that are received")
+	s.Equal("2", changes[0].SysId, "SysId should be incremented by the number of changes that are received")
 	s.Equal("CHG300031", changes[1].Number, "Change number should be the same as in the API result")
+	s.Equal("22", changes[1].SysId, "SysId should be the same as in the API result")
 	s.Equal("", errorText, "No errors expected")
 
 	loggerObj.AssertExpectations(t)
@@ -1535,39 +1451,129 @@ func (s *ChangeTestSuite) TestGetChangesExactAPIWindowSize() {
 
 	p, loggerObj := testGetPlugin()
 
-	ciName := "app-demoapp"
-	requestURI := getChangeRequestURI("1", "0")
-	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"},
-                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00"},
-                                {"type":"1", "number":"CHG300032", "short_description":"test3", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00"},
-                                {"type":"1", "number":"CHG300033", "short_description":"test4", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00"},
-                                {"type":"1", "number":"CHG300034", "short_description":"test5", "start_date":"2025-05-15 21:00:00", "end_date":"2025-05-15 21:45:00"}]}`
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
 
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	serviceNowUrl = server.URL
-	defer server.Close()
+	cmdbCi := "chg5"
 
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00", "sys_id": "1"},
+                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00", "sys_id": "2"},
+                                {"type":"1", "number":"CHG300032", "short_description":"test3", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00", "sys_id": "3"},
+                                {"type":"1", "number":"CHG300033", "short_description":"test4", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00", "sys_id": "4"},
+                                {"type":"1", "number":"CHG300034", "short_description":"test5", "start_date":"2025-05-15 21:00:00", "end_date":"2025-05-15 21:45:00", "sys_id": "5"}]}`
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
 	serviceNowUrl = server.URL
 
 	loggerObj.On("Debug", mock.Anything)
 
-	//	changes, number := p.getChanges(ciName, 0)
-	changes, number, errorText := p.getChanges(ciName, "1", 0)
+	changes, newSysparmOffet, errorText := p.getChanges(cmdbCi, sysparmOffset)
 
 	s.Equal("CHG300030", changes[0].Number, "Change number should be the same as in the API result")
-	s.Equal(5, number, "Number should be incremented by the number of changes that are received")
+	s.Equal(5, newSysparmOffet, "New sysparmOffset should be incremented by the number of changes that are received")
 	s.Equal("CHG300031", changes[1].Number, "Change number should be the same as in the API result")
 	s.Equal("CHG300032", changes[2].Number, "Change number should be the same as in the API result")
 	s.Equal("CHG300033", changes[3].Number, "Change number should be the same as in the API result")
 	s.Equal("CHG300034", changes[4].Number, "Change number should be the same as in the API result")
 	s.Equal("", errorText, "No errors expected")
 
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *ChangeTestSuite) TestGetChangesNoChange() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	cmdbCi := "ci1"
+
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := "{\"result\":[]}"
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Debug", responseText)
+	loggerObj.On("Info", "No changes found")
+
+	changes, newPointer, errorText := p.getChanges(cmdbCi, 0)
+
+	s.Equal(0, len(changes), "No changes should be found")
+	s.Equal(0, newPointer, "New value for offset should be 0")
+	s.Equal("No changes found", errorText, "Correct error text")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *ChangeTestSuite) TestGetChangesNoJSON() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	responseText := "!"
+	expectedErrorText := "Error in json.Unmarshal: invalid character '!' looking for beginning of value (!)"
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	cmdbCi := "ci5"
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Debug", responseText)
+	loggerObj.On("Error", expectedErrorText)
+
+	_, _, errorText := p.getChanges(cmdbCi, 0)
+
+	s.Equal(expectedErrorText, errorText, "Correct error text")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *ChangeTestSuite) TestGetChangesAPIServerDown() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	sysparmOffset := 0
+	cmdbCi := "ci6"
+	responseText := "<html><body>Server down!</body></html>"
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+
+	apiCall := fmt.Sprintf("%s%s", server.URL, requestURI)
+	expectedErrorText := "ServiceNow API server is down"
+
+	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
+	loggerObj.On("Debug", responseText)
+	loggerObj.On("Error", expectedErrorText)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	_, _, errorText := p.getChanges(cmdbCi, sysparmOffset)
+	s.Equal(expectedErrorText, errorText, "Correct error text")
 	loggerObj.AssertExpectations(t)
 }
 
@@ -1584,13 +1590,14 @@ func (s *ChangeTestSuite) TestParseChange() {
 		SysId:            "sys_id",
 	}
 
-	loggerObj.On("Debug", fmt.Sprintf("Change: Type: %s, Number: %s, Short description: %s, Start Date: %s, End Date: %s, SysId: %s",
+	debugText := fmt.Sprintf("Change: Type: %s, Number: %s, Short description: %s, Start Date: %s, End Date: %s, SysId: %s",
 		change_servicenow.Type,
 		change_servicenow.Number,
 		change_servicenow.ShortDescription,
 		change_servicenow.StartDate,
 		change_servicenow.EndDate,
-		change_servicenow.SysId))
+		change_servicenow.SysId)
+	loggerObj.On("Debug", debugText)
 
 	chg, errorText := p.parseChange(change_servicenow)
 
@@ -1601,7 +1608,6 @@ func (s *ChangeTestSuite) TestParseChange() {
 	s.Equal(time.Date(2025, 05, 16, 8, 0, 0, 0, time.UTC), chg.StartDate, "Change start date should be the same")
 	s.Equal(change_servicenow.SysId, chg.SysId, "Change sys_id should be the same")
 	s.Equal("", errorText, "No errors expected")
-
 	loggerObj.AssertExpectations(t)
 }
 
@@ -1619,6 +1625,7 @@ func testAllowedCIStatus(s *CheckCITestSuite, status string) {
 	}
 
 	checkString := p.checkCI(ci)
+
 	s.Equal("", checkString, "Installed state should be accepted")
 	loggerObj.AssertExpectations(t)
 }
@@ -1639,74 +1646,27 @@ func testNotAllowedCIStatus(s *CheckCITestSuite, status string) {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *CheckCITestSuite) TestCheckCIInstalled() {
-	testAllowedCIStatus(s, "1") // Installed
+func (s *CheckCITestSuite) TestCheckCICorrectState() {
+	const installed = "1"
+	const inMaintenance = "3"
+	const pendingInstall = "4"
+	const pendingRepair = "5"
+
+	validStates := []string{installed, inMaintenance, pendingInstall, pendingRepair}
+	for _, state := range validStates {
+		testAllowedCIStatus(s, state)
+	}
 }
 
-func (s *CheckCITestSuite) TestCheckCIInMaintenance() {
-	testAllowedCIStatus(s, "3") // In maintenance
-}
-
-func (s *CheckCITestSuite) TestCheckCIPendingInstall() {
-	testAllowedCIStatus(s, "4") // Pending Install
-}
-
-func (s *CheckCITestSuite) TestCheckCIPendingRepair() {
-	testAllowedCIStatus(s, "5") // Pending Repair
-}
-
-func (s *CheckCITestSuite) TestCheckCIStateNotAllowed0() {
-	testNotAllowedCIStatus(s, "0")
-}
-
-func (s *CheckCITestSuite) TestCheckCIState2() {
-	testNotAllowedCIStatus(s, "2")
-}
-
-func (s *CheckCITestSuite) TestCheckCIState6() {
-	testNotAllowedCIStatus(s, "6")
+func (s *CheckCITestSuite) TestCheckCIInvalidState() {
+	invalidStates := []string{"0", "2", "6"}
+	for _, state := range invalidStates {
+		testNotAllowedCIStatus(s, state)
+	}
 }
 
 func TestCheckCI(t *testing.T) {
 	suite.Run(t, new(CheckCITestSuite))
-}
-
-func testChangeTimeIncorrect(s *CheckChangeTestSuite, currentTime time.Time, startDate time.Time, endDate time.Time) {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	timezone = "UTC"
-
-	var change = Change{
-		Type:             "1",
-		Number:           "CHG12345",
-		EndDate:          endDate,
-		ShortDescription: "Test",
-		StartDate:        startDate,
-		SysId:            "1",
-	}
-
-	expectedErrorText := fmt.Sprintf("Change %s (%s) is not in the valid time range. start date: %s and end date: %s (current date: %s)",
-		change.Number,
-		change.ShortDescription,
-		p.getLocalTime(change.StartDate),
-		p.getLocalTime(change.EndDate),
-		p.getLocalTime(currentTime))
-	loggerObj.On("Debug", expectedErrorText)
-
-	checkString, _ := p.checkChange(change)
-
-	assert.Equal(t, expectedErrorText, checkString, "Change that is started too early should not be accepted")
-	loggerObj.AssertExpectations(t)
-
-}
-
-func (s *CheckChangeTestSuite) TestCheckChangeTooEarly() {
-	currentTime := time.Now()
-	startDate := currentTime.Add(time.Hour)
-	endDate := currentTime.Add(time.Hour * 2)
-
-	testChangeTimeIncorrect(s, currentTime, startDate, endDate)
 }
 
 func (s *CheckChangeTestSuite) TestCheckChangeCorrectTime() {
@@ -1737,34 +1697,72 @@ func (s *CheckChangeTestSuite) TestCheckChangeCorrectTime() {
 	loggerObj.AssertExpectations(t)
 }
 
+func testChangeTimeIncorrect(s *CheckChangeTestSuite, currentTime time.Time, startDate time.Time, endDate time.Time, situation string) {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	timezone = "UTC"
+
+	var change = Change{
+		Type:             "1",
+		Number:           "CHG12345",
+		EndDate:          endDate,
+		ShortDescription: "Test",
+		StartDate:        startDate,
+		SysId:            "1",
+	}
+
+	expectedErrorText := fmt.Sprintf("Change %s (%s) is not in the valid time range. start date: %s and end date: %s (current date: %s)",
+		change.Number,
+		change.ShortDescription,
+		p.getLocalTime(change.StartDate),
+		p.getLocalTime(change.EndDate),
+		p.getLocalTime(currentTime))
+	loggerObj.On("Debug", expectedErrorText)
+
+	checkString, _ := p.checkChange(change)
+
+	assert.Equal(t, expectedErrorText, checkString, "Change that is started "+situation+" should not be accepted")
+	loggerObj.AssertExpectations(t)
+
+}
+
+func (s *CheckChangeTestSuite) TestCheckChangeTooEarly() {
+	currentTime := time.Now()
+	startDate := currentTime.Add(time.Hour)
+	endDate := currentTime.Add(time.Hour * 2)
+
+	testChangeTimeIncorrect(s, currentTime, startDate, endDate, "too early")
+}
+
 func (s *CheckChangeTestSuite) TestCheckChangeTooLate() {
 	timezone = "UTC"
 	currentTime := time.Now()
 	startDate := currentTime.Add(-2 * time.Hour)
 	endDate := currentTime.Add(-1 * time.Hour)
 
-	testChangeTimeIncorrect(s, currentTime, startDate, endDate)
+	testChangeTimeIncorrect(s, currentTime, startDate, endDate, "too late")
 }
 
 func TestCheckChange(t *testing.T) {
 	suite.Run(t, new(CheckChangeTestSuite))
 }
 
-func (s *PluginHelperMethodsTestSuite) TestProcessCI() {
+func (s *PluginHelperMethodsTestSuite) TestProcessCIWithValidCI() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 	loggerObj.On("Debug", mock.Anything)
 
-	ciName := "app-demoapp"
-	requestURI := "/api/now/table/cmdb_ci?name=app-demoapp&sysparm_fields=install_status,name,sys_id"
-	responseText := fmt.Sprintf(`{"result":[{"install_status":"1", "name":"%s", "sys_id": "1"}]}`, ciName)
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
 
+	ciName := "app-demoapp"
+
+	requestURI := getTestCIRequestURI(ciName)
+	responseText := fmt.Sprintf(`{"result":[{"install_status":"1", "name":"%s", "sys_id": "1"}]}`, ciName)
 	var responseMap = make(map[string]string)
 	responseMap[requestURI] = responseText
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	defer server.Close()
 	serviceNowUrl = server.URL
 
@@ -1775,7 +1773,39 @@ func (s *PluginHelperMethodsTestSuite) TestProcessCI() {
 	// Don't assert logging, is done in other tests
 }
 
-func getChangeRequestURI(cmdb_ci string, sysparm_offset string) string {
+func (s *PluginHelperMethodsTestSuite) TestProcessCIWithoutValidCI() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	ciName := "app-demoapp"
+	requestURI := getTestCIRequestURI(ciName)
+	responseText := `{"result":[]}`
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedErrorText := fmt.Sprintf("No CI with name %s found", ciName)
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Error", expectedErrorText)
+
+	errorString, sysId := p.processCI(ciName)
+
+	s.Equal(expectedErrorText, errorString, "Errorstring should be correct")
+	s.Equal("", sysId, "sys_id should be empty")
+	// Don't assert logging, is done in other tests
+}
+
+func getTestCIRequestURI(ciName string) string {
+	requestURI := fmt.Sprintf(`/api/now/table/cmdb_ci?name=%s&sysparm_fields=install_status,name,sys_id`, ciName)
+	return requestURI
+}
+
+func getTestChangeRequestURI(cmdbCi string, sysparmOffset int) string {
 
 	// I know, next part is awful.
 	//
@@ -1786,6 +1816,7 @@ func getChangeRequestURI(cmdb_ci string, sysparm_offset string) string {
 	// readable.
 	//
 	// Sorry for now!
+
 	startDate := time.Now().Add(-1 * time.Hour * 24 * time.Duration(timeWindowChangesDays))
 	startYear := startDate.Year()
 	startMonth := startDate.Month()
@@ -1796,46 +1827,47 @@ func getChangeRequestURI(cmdb_ci string, sysparm_offset string) string {
 	endMonth := endDate.Month()
 	endDay := endDate.Day()
 
-	requestURIBegin := "/api/now/table/change_request?sysparm_query=cmdb_ci%3d" + cmdb_ci + "%5estate%3d%2d1%5ephase%3drequested%5eapproval%3dapproved%5eactive%3dtrue%5eGOTOstart_date%3e"
+	requestURIBegin := "/api/now/table/change_request?sysparm_query=cmdb_ci%3d" + cmdbCi + "%5estate%3d%2d1%5ephase%3drequested%5eapproval%3dapproved%5eactive%3dtrue%5eGOTOstart_date%3e"
 	startDateURI := fmt.Sprintf("%04d%%2d%02d%%2d%02d", startYear, startMonth, startDay)
 	endDateURI := fmt.Sprintf("%04d%%2d%02d%%2d%02d", endYear, endMonth, endDay)
 	requestURIEndDate := "%2000%3a00%3a00%5eGOTOend_date%3c"
 	requestURIRest := "%2023%3a59%3a59&sysparm_fields=type,number,short_description,start_date,end_date,sys_id&sysparm_limit=5&sysparm_offset="
 
-	requestURI := requestURIBegin + startDateURI + requestURIEndDate + endDateURI + requestURIRest + sysparm_offset
+	sysparmOffsetString := fmt.Sprintf("%d", sysparmOffset)
+	requestURI := requestURIBegin + startDateURI + requestURIEndDate + endDateURI + requestURIRest + sysparmOffsetString
+
 	return requestURI
 }
 
-func (s *PluginHelperMethodsTestSuite) TestProcessChanges() {
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
-	loggerObj.On("Debug", mock.Anything)
 
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
 	timezone = "UTC"
+
 	currentTime := time.Now()
 	startDate := currentTime.Add(-5 * time.Minute)
 	endDate := currentTime.Add(time.Hour * 2)
 
 	cmdbCi := "a7b5e1"
+	ciName := "app-demoapp"
+	sysparmOffset := 0
 
-	requestURI := getChangeRequestURI(cmdbCi, "0")
-
-	responseText := fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"%s", "end_date":"%s"}]}`,
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"%s", "end_date":"%s", "sys_id": "1"}]}`,
 		testConvertTimeToString(startDate),
 		testConvertTimeToString(endDate))
-
 	var responseMap = make(map[string]string)
 	responseMap[requestURI] = responseText
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	serviceNowUrl = server.URL
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	defer server.Close()
 	serviceNowUrl = server.URL
 
-	errorString, changeRemainingTime, validChange := p.processChanges("app-demoapp", cmdbCi)
+	loggerObj.On("Debug", mock.Anything)
+
+	errorString, changeRemainingTime, validChange := p.processChanges(ciName, cmdbCi)
 
 	s.Equal("", errorString, "Errorstring should be empty")
 	if changeRemainingTime.Minutes() < 40 {
@@ -1847,84 +1879,172 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChanges() {
 	// Don't assert logging, is done in other tests
 }
 
-func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindows() {
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithoutChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
 	timezone = "UTC"
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	sysparmOffset := 0
+	ciName := "app-demoapp1"
+	cmdbCi := "a7b5e2"
+
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[]}`
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedInfoString := "No changes found"
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", expectedInfoString)
+
+	errorString, _, _ := p.processChanges(ciName, cmdbCi)
+
+	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
+
+	// Don't assert logging, is done in other tests
+}
+
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithOneInvalidChange() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	timezone = "UTC"
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	sysparmOffset := 0
+	ciName := "app-demoapp1"
+	cmdbCi := "a7b5e2"
+
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00", "sys_id": "abc123def567"}]}`
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedInfoString := "No valid change found"
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", expectedInfoString)
+
+	errorString, _, _ := p.processChanges(ciName, cmdbCi)
+
+	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
+
+	// Don't assert logging, is done in other tests
+}
+
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsWithValidChange() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+	timezone = "UTC"
+
 	currentTime := time.Now()
 	startDate := currentTime.Add(-5 * time.Minute)
 	endDate := currentTime.Add(time.Hour * 2)
 
-	ciName := "app-demoapp"
+	ciName := "app-demoapp2"
+	cmdbCi := "ci1"
+
 	var responseMap = make(map[string]string)
 
-	requestURI := getChangeRequestURI("1", "0")
-
-	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"},
-                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00"},
-                                {"type":"1", "number":"CHG300032", "short_description":"test3", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00"},
-                                {"type":"1", "number":"CHG300033", "short_description":"test4", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00"},
-                                {"type":"1", "number":"CHG300034", "short_description":"test5", "start_date":"2025-05-15 21:00:00", "end_date":"2025-05-15 21:45:00"}]}`
-
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00","sys_id": "abc123def561"},
+                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00","sys_id": "abc123def562"},
+                                {"type":"1", "number":"CHG300032", "short_description":"test3", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00","sys_id": "abc123def563"},
+                                {"type":"1", "number":"CHG300033", "short_description":"test4", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00","sys_id": "abc123def564"},
+                                {"type":"1", "number":"CHG300034", "short_description":"test5", "start_date":"2025-05-15 21:00:00", "end_date":"2025-05-15 21:45:00","sys_id": "abc123def565"}]}`
 	responseMap[requestURI] = responseText
 
-	requestURI = getChangeRequestURI("1", "5")
-	responseText = fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300040", "short_description":"test6", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"},
-                                {"type":"1", "number":"CHG300041", "short_description":"test7", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00"},
-                                {"type":"1", "number":"CHG300042", "short_description":"test8", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00"},
-                                {"type":"1", "number":"CHG300043", "short_description":"test9", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00"},
-                                {"type":"1", "number":"CHG300044", "short_description":"test10", "start_date":"%s", "end_date":"%s"}]}`,
+	sysparmOffset = 5
+	requestURI = getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText = fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300040", "short_description":"test6", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00","sys_id": "abc123def570"},
+                                {"type":"1", "number":"CHG300041", "short_description":"test7", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00","sys_id": "abc123def571"},
+                                {"type":"1", "number":"CHG300042", "short_description":"test8", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00","sys_id": "abc123def572"},
+                                {"type":"1", "number":"CHG300043", "short_description":"test9", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00","sys_id": "abc123def573"},
+                                {"type":"1", "number":"CHG300044", "short_description":"test10", "start_date":"%s", "end_date":"%s","sys_id": "abc123def574"}]}`,
 		testConvertTimeToString(startDate),
 		testConvertTimeToString(endDate))
-
 	responseMap[requestURI] = responseText
 
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	serviceNowUrl = server.URL
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	defer server.Close()
 	serviceNowUrl = server.URL
 
 	loggerObj.On("Debug", mock.Anything)
 
-	errorString, changeRemainingTime, validChange := p.processChanges(ciName, "1")
+	errorString, changeRemainingTime, validChange := p.processChanges(ciName, cmdbCi)
 
 	s.Equal("", errorString, "Errorstring should be empty")
 	if changeRemainingTime.Minutes() < 40 {
 		s.Fail("changeRemainingTime is too small, less than 40 minutes")
 	}
 
-	s.Equal("CHG300044", validChange.Number, "Numbers must be equal")
-	s.Equal("test10", validChange.ShortDescription, "Short descriptions must be equal")
+	s.Equal("CHG300044", validChange.Number, "Numbers must be correct")
+	s.Equal("test10", validChange.ShortDescription, "Short descriptions must be correct")
+	s.Equal("abc123def574", validChange.SysId, "sys_id must be correct")
 	loggerObj.AssertExpectations(t)
 }
 
-func simulateGlobalHttpRequestToServiceNow(startDateString string, endDateString string, installStatus string) *httptest.Server {
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsErrorInSecondBatch() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
 
-	var response string
-
-	time.Local = time.UTC
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
 	timezone = "UTC"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.RequestURI() == "/api/now/table/cmdb_ci?name=app-demoapp&sysparm_fields=install_status,name,sys_id" {
-			response = fmt.Sprintf(`{"result": [{"install_status": "%s", "name": "demoapp", "sys_id": "ci6"}]}`, installStatus)
-		}
-		if r.URL.RequestURI() == getChangeRequestURI("ci6", "0") {
-			fmt.Println("Response written")
-			response = fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300030", "short_description":"valid change", "start_date":"%s", "end_date":"%s"}]}`, startDateString, endDateString)
-		}
+	ciName := "app-demoapp3"
+	cmdbCi := "id2"
 
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(response))
-	}))
-	return server
+	var responseMap = make(map[string]string)
+
+	sysparmOffset := 0
+	requestURI := getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"},
+                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00"},
+                                {"type":"1", "number":"CHG300032", "short_description":"test3", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00"},
+                                {"type":"1", "number":"CHG300033", "short_description":"test4", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00"},
+                                {"type":"1", "number":"CHG300034", "short_description":"test5", "start_date":"2025-05-15 21:00:00", "end_date":"2025-05-15 21:45:00"}]}`
+	responseMap[requestURI] = responseText
+
+	sysparmOffset = 5
+	requestURI = getTestChangeRequestURI(cmdbCi, sysparmOffset)
+	responseText = `{"result":[]}`
+	responseMap[requestURI] = responseText
+
+	server := simulateHttpRequestToServiceNow(t, responseMap)
+	serviceNowUrl = server.URL
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedInfoString := "No changes found"
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", expectedInfoString)
+
+	errorString, changeRemainingTime, _ := p.processChanges(ciName, cmdbCi)
+
+	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
+	s.Equal(changeRemainingTime.Minutes(), 0.0, "changeRemainingTime is incorrect, different from 0")
+
+	loggerObj.AssertExpectations(t)
 }
 
-func testGetArApp() (api.AccessRequest, argocd.Application) {
+func getTestARApp() (api.AccessRequest, argocd.Application) {
 	var ar api.AccessRequest
 	var requestedRole api.TargetRole
 	var app argocd.Application
@@ -1966,16 +2086,22 @@ func (s *PublicMethodsTestSuite) TestInit() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *PublicMethodsTestSuite) TestGrantAccess() {
-	t := s.T()
+func configureTestEnvWithTestData(t *testing.T, loggerObj *MockedLogger, installStatus string, addChange bool) *httptest.Server {
+	_ = os.Setenv("TIMEZONE", "UTC")
+	_ = os.Setenv("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "")
+	_ = os.Setenv("SERVICENOW_SECRET_NAME", "")
+	_ = os.Setenv("SERVICENOW_URL", "https://example.com")
 
-	p, loggerObj := testGetPlugin()
-
+	secretName := "servicenow-secret"
+	namespace := "argocd-ephemeral-access"
+	genericUsername := "serviceNowUsername"
+	genericPassword := "serviceNowPassword"
 	unittest = true // don't initialize k8sconfig/k8sclientset
 
-	ar, app := testGetArApp()
+	k8sclientset = testclient.NewClientset()
+	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", "incidentmanagers")
+	setSecret(namespace, secretName, genericUsername, genericPassword)
 
-	_ = os.Setenv("TIMEZONE", "UTC")
 	currentTime := time.Now()
 	startDate := currentTime.Add(-5 * time.Minute)
 	endDate := currentTime.Add(2 * time.Hour)
@@ -1987,31 +2113,38 @@ func (s *PublicMethodsTestSuite) TestGrantAccess() {
 
 	var responseMap = make(map[string]string)
 
-	requestURI := "/api/now/table/cmdb_ci?name=app-demoapp&sysparm_fields=install_status,name,sys_id"
-	responseText := `{"result": [{"install_status": "1", "name": "demoapp", "sys_id": "5"}]}`
+	requestURI := getTestCIRequestURI("app-demoapp")
+	responseText := fmt.Sprintf(`{"result": [{"install_status": "%s", "name": "app-demoapp", "sys_id": "5"}]}`, installStatus)
 	responseMap[requestURI] = responseText
 
-	requestURI = getChangeRequestURI("5", "0")
-	responseText = fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300030", "short_description":"valid change", "start_date":"%s", "end_date":"%s", "sys_id":"1"}]}`, startDateString, endDateString)
+	sysparmOffset := 0
+	requestURI = getTestChangeRequestURI("5", sysparmOffset)
+	if addChange {
+		responseText = fmt.Sprintf(`{"result":[{"type":"1", "number":"CHG300030", "short_description":"valid change", "start_date":"%s", "end_date":"%s", "sys_id":"1"}]}`, startDateString, endDateString)
+	} else {
+		responseText = `{"result": []}`
+	}
 	responseMap[requestURI] = responseText
 
 	requestURI = "/api/now/table/change_request/1" // for post, but whatever. We don't do anything with the response...
 	responseText = `{"whatever":"true"}`
 	responseMap[requestURI] = responseText
 
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	defer server.Close()
-
+	server := simulateHttpRequestToServiceNow(t, responseMap)
 	_ = os.Setenv("SERVICENOW_URL", server.URL)
 
-	secretName := "servicenow-secret"
-	namespace := "argocd-ephemeral-access"
-	genericUsername := "serviceNowUsername"
-	genericPassword := "serviceNowPassword"
+	return server
+}
 
-	k8sclientset = testclient.NewClientset()
-	setConfigMap(namespace, ExclusionsConfigMapName, "exceptions-roles", "")
-	setSecret(namespace, secretName, genericUsername, genericPassword)
+func (s *PublicMethodsTestSuite) TestGrantAccess() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
+	defer server.Close()
+	loggerObj.On("Info", "Call to GrantAccess: username: Test User, role: administrator, application: [argocd]demoapp, duration: 4h0m0s")
+
+	ar, app := getTestARApp()
 
 	response, err := p.GrantAccess(&ar, &app)
 
@@ -2019,6 +2152,9 @@ func (s *PublicMethodsTestSuite) TestGrantAccess() {
 	s.Equal(nil, err, "Error should be nil")
 	if !strings.Contains(response.Message, "Granted access") {
 		t.Errorf("%s should contain text Granted access", response.Message)
+	}
+	if !strings.Contains(response.Message, "change") {
+		t.Errorf("%s should contain text change", response.Message)
 	}
 	loggerObj.AssertExpectations(t)
 }
@@ -2028,26 +2164,12 @@ func (s *PublicMethodsTestSuite) TestGrantAccessExclusionRole() {
 
 	p, loggerObj := testGetPlugin()
 
-	unittest = true // don't initialize k8sconfig/k8sclientset
+	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
+	defer server.Close()
 
-	ar, app := testGetArApp()
-
-	_ = os.Setenv("TIMEZONE", "UTC")
-	_ = os.Setenv("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "")
-	_ = os.Setenv("SERVICENOW_SECRET_NAME", "")
-	_ = os.Setenv("SERVICENOW_URL", "https://example.com")
-
-	loggerObj.On("Debug", mock.Anything)
-	loggerObj.On("Info", mock.Anything)
-	loggerObj.On("Warn", mock.Anything)
-
-	ephemeralAccessPluginNamespace = "argocd-ephemeral-access"
-	secretName := "servicenow-secret"
-
-	k8sclientset = testclient.NewClientset()
-	setConfigMap(ephemeralAccessPluginNamespace, ExclusionsConfigMapName, "exclusion-roles", "incidentmanagers")
-	setSecret(ephemeralAccessPluginNamespace, secretName, "testuser", "testpassw0rd")
+	ar, app := getTestARApp()
 	ar.Spec.Role.TemplateRef.Name = "incidentmanagers"
+	loggerObj.On("Warn", mock.Anything)
 
 	response, err := p.GrantAccess(&ar, &app)
 
@@ -2056,26 +2178,27 @@ func (s *PublicMethodsTestSuite) TestGrantAccessExclusionRole() {
 	if !strings.Contains(response.Message, "Granted access") {
 		t.Errorf("%s should contain text Granted access", response.Message)
 	}
+	if !strings.Contains(response.Message, "exclusion role") {
+		t.Errorf("%s should contain text exclusion role", response.Message)
+	}
 	loggerObj.AssertExpectations(t)
 }
 
 func (s *PublicMethodsTestSuite) TestGrantAccessNoCIName() {
 	t := s.T()
-
 	p, loggerObj := testGetPlugin()
 
-	errorText := "No CI name found: expected label with name ci-name in application demoapp"
+	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
+	defer server.Close()
 
-	ar, app := testGetArApp()
+	errorText := "No CI name found: expected label with name ci-name in application demoapp"
+	loggerObj.On("Error", errorText)
+
+	ar, app := getTestARApp()
 	var m = make(map[string]string)
 	m["ci-name"] = "\"\""
 	app.Labels = m
 
-	unittest = true
-
-	loggerObj.On("Debug", mock.Anything)
-	loggerObj.On("Info", "Call to GrantAccess: username: Test User, role: administrator, application: [argocd]demoapp, duration: 4h0m0s")
-	loggerObj.On("Error", errorText)
 	response, err := p.GrantAccess(&ar, &app)
 
 	s.Equal(errorText, response.Message, "Response message should be correct")
@@ -2085,25 +2208,41 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoCIName() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *PublicMethodsTestSuite) TestGrantAccessIncorrectCI() {
+func (s *PublicMethodsTestSuite) TestGrantAccessNoServiceNowURL() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
-	ar, app := testGetArApp()
 
-	unittest = true
-
-	startDateString := "2025-01-01 00:00:00"
-	endDateString := "2025-01-01 23:59:59"
-	installStatus := "-1"
-	server := simulateGlobalHttpRequestToServiceNow(startDateString, endDateString, installStatus)
+	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
 	defer server.Close()
-	_ = os.Setenv("SERVICENOW_URL", server.URL)
+	_ = os.Setenv("SERVICENOW_URL", "")
 
-	errorText := fmt.Sprintf("Invalid install status (%s) for CI demoapp", installStatus)
+	expectedErrorText := "No Service Now URL given (environment variable SERVICENOW_URL is empty)"
+	loggerObj.On("Error", expectedErrorText)
 
-	loggerObj.On("Debug", mock.Anything)
-	loggerObj.On("Info", mock.Anything)
+	ar, app := getTestARApp()
+
+	response, err := p.GrantAccess(&ar, &app)
+
+	s.Equal(expectedErrorText, response.Message, "Response message should be correct")
+	s.Equal(plugin.GrantStatusDenied, response.Status, "Response status should be correct")
+	s.Equal(nil, err, "Error should be nil")
+
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *PublicMethodsTestSuite) TestGrantAccessIncorrectCI() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	ar, app := getTestARApp()
+	invalidInstallStatus := "-1"
+
+	server := configureTestEnvWithTestData(t, loggerObj, invalidInstallStatus, addChange)
+	defer server.Close()
+
+	errorText := fmt.Sprintf("Invalid install status (%s) for CI app-demoapp", invalidInstallStatus)
+
 	loggerObj.On("Error", "Access Denied for Test User : "+errorText)
 	response, err := p.GrantAccess(&ar, &app)
 
@@ -2118,23 +2257,16 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoChange() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
-	ar, app := testGetArApp()
+	ar, app := getTestARApp()
 
-	unittest = true
-
-	startDateString := "2025-01-01 00:00:00"
-	endDateString := "2025-01-01 23:59:59"
-	installStatus := "1"
-	server := simulateGlobalHttpRequestToServiceNow(startDateString, endDateString, installStatus)
+	dontAddChange := !addChange
+	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, dontAddChange)
 	defer server.Close()
-	_ = os.Setenv("SERVICENOW_URL", server.URL)
 
-	loggerObj.On("Debug", mock.Anything)
-	loggerObj.On("Info", mock.Anything)
 	loggerObj.On("Error", mock.Anything)
 	response, err := p.GrantAccess(&ar, &app)
 
-	s.Equal("No valid change found", response.Message, "Response message should be correct")
+	s.Equal("No changes found", response.Message, "Response message should be correct")
 	s.Equal(plugin.GrantStatusDenied, response.Status, "Response status should be correct")
 	s.Equal(nil, err, "Error should be nil")
 

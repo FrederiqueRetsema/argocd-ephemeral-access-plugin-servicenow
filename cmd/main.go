@@ -171,20 +171,22 @@ func (p *ServiceNowPlugin) getCredentialsFromSecret(namespace string, secretName
 	return string(secret.Data[usernameKey]), string(secret.Data[passwordKey]), errorText
 }
 
-func (p *ServiceNowPlugin) getExclusionsFromConfigMap(namespace string) ([]string, string) {
+func (p *ServiceNowPlugin) getExclusionsFromConfigMap(namespace string) []string {
 	p.Logger.Debug(fmt.Sprintf("Get exclusions from configmap [%s]%s", namespace, ExclusionsConfigMapName))
 
-	errorText := ""
+	exclusions := []string{}
 
 	configmap, err := k8sclientset.CoreV1().ConfigMaps(namespace).Get(context.TODO(), ExclusionsConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		errorText = fmt.Sprintf("Error getting configmap %s, does configmap exist in namespace %s?", ExclusionsConfigMapName, namespace)
-		p.Logger.Error(errorText)
+		debugText := fmt.Sprintf("Error getting configmap %s, does configmap exist in namespace %s?", ExclusionsConfigMapName, namespace)
+		p.Logger.Debug(debugText)
+		p.Logger.Debug("No exclusions used")
+	} else {
+		exclusions = strings.Split(configmap.Data["exclusion-roles"], "\n")
+		p.Logger.Debug("Exclusions used: " + configmap.Data["exclusion-roles"])
 	}
 
-	p.Logger.Debug("Exclusions found: " + configmap.Data["exclusion-roles"])
-
-	return strings.Split(configmap.Data["exclusion-roles"], "\n"), errorText
+	return exclusions
 }
 
 func (p *ServiceNowPlugin) getGlobalVars() string {
@@ -192,7 +194,6 @@ func (p *ServiceNowPlugin) getGlobalVars() string {
 
 	serviceNowURLError := ""
 	serviceNowCredentialsError := ""
-	configMapError := ""
 
 	serviceNowUrl, serviceNowURLError = p.getEnvVarWithoutDefault("SERVICENOW_URL", "No Service Now URL given (environment variable SERVICENOW_URL is empty)")
 	serviceNowUsername, serviceNowPassword, serviceNowCredentialsError = p.getServiceNowCredentials()
@@ -200,10 +201,10 @@ func (p *ServiceNowPlugin) getGlobalVars() string {
 	timezone = p.getEnvVarWithDefault("TIMEZONE", "UTC")
 	ciLabel = p.getEnvVarWithDefault("CI_LABEL", "ci-name")
 	ephemeralAccessPluginNamespace = p.getEnvVarWithDefault("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "argocd-ephemeral-access")
-	exclusionRoles, configMapError = p.getExclusionsFromConfigMap(ephemeralAccessPluginNamespace)
+	exclusionRoles = p.getExclusionsFromConfigMap(ephemeralAccessPluginNamespace)
 	timeWindowChangesDays = p.convertToInt("environment variable TIME_WINDOW_CHANGES_DAYS", p.getEnvVarWithDefault("TIME_WINDOW_CHANGES_DAYS", "7"), 7)
 
-	return errorText + serviceNowURLError + serviceNowCredentialsError + configMapError
+	return errorText + serviceNowURLError + serviceNowCredentialsError
 }
 
 func (p *ServiceNowPlugin) showRequest(ar *api.AccessRequest, app *argocd.Application) {
@@ -393,6 +394,7 @@ func (p *ServiceNowPlugin) getFromServiceNowAPI(requestURI string) ([]byte, stri
 		p.Logger.Error(errorText)
 		return []byte{}, errorText
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
@@ -431,6 +433,7 @@ func (p *ServiceNowPlugin) patchServiceNowAPI(requestURI string, data string) ([
 		p.Logger.Error(errorText)
 		return nil, errorText
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
@@ -518,7 +521,6 @@ func (p *ServiceNowPlugin) getChangeRequestURI(ciSysId string, sysparmOffset int
 		ciSysId,
 		fromDateString,
 		endDateString)
-	fmt.Println(selection)
 
 	// selection should be encoded for url (the rest doesn't matter)
 	selection = strings.ReplaceAll(selection, " ", "%20")
@@ -540,7 +542,7 @@ func (p *ServiceNowPlugin) getChangeRequestURI(ciSysId string, sysparmOffset int
 	return requestURI
 }
 
-func (p *ServiceNowPlugin) getChanges(ciName string, ciSysId string, sysparmOffset int) ([]*ChangeServiceNow, int, string) {
+func (p *ServiceNowPlugin) getChanges(ciSysId string, sysparmOffset int) ([]*ChangeServiceNow, int, string) {
 
 	requestURI := p.getChangeRequestURI(ciSysId, sysparmOffset)
 	response, errorText := p.getFromServiceNowAPI(requestURI)
@@ -646,7 +648,7 @@ func (p *ServiceNowPlugin) processCI(ciName string) (string, string) {
 func (p *ServiceNowPlugin) processChanges(ciName string, ciSysId string) (string, time.Duration, *Change) {
 	var SysparmOffset = 0
 
-	serviceNowChanges, SysparmOffset, errorText := p.getChanges(ciName, ciSysId, SysparmOffset)
+	serviceNowChanges, SysparmOffset, errorText := p.getChanges(ciSysId, SysparmOffset)
 	if errorText != "" {
 		var noDuration = 0 * time.Minute
 		return errorText, noDuration, nil
@@ -675,7 +677,7 @@ func (p *ServiceNowPlugin) processChanges(ciName string, ciSysId string) (string
 			errorText = "No valid change found"
 			break
 		} else {
-			serviceNowChanges, SysparmOffset, errorText = p.getChanges(ciName, ciSysId, SysparmOffset)
+			serviceNowChanges, SysparmOffset, errorText = p.getChanges(ciSysId, SysparmOffset)
 			if errorText != "" {
 				break
 			}

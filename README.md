@@ -53,5 +53,3 @@ When access is granted based on an exclusion role, a warning will be sent
 to the logs.
 
 ## Installation
-
-...to be done...
