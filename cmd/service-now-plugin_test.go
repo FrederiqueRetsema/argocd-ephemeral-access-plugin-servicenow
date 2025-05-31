@@ -1646,7 +1646,7 @@ func testNotAllowedCIStatus(s *CheckCITestSuite, status string) {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *CheckCITestSuite) TestCheckCIInstalled() {
+func (s *CheckCITestSuite) TestCheckCICorrectState() {
 	const installed = "1"
 	const inMaintenance = "3"
 	const pendingInstall = "4"
@@ -1658,7 +1658,7 @@ func (s *CheckCITestSuite) TestCheckCIInstalled() {
 	}
 }
 
-func (s *CheckCITestSuite) TestCheckCIStateNotAllowed0() {
+func (s *CheckCITestSuite) TestCheckCIInvalidState() {
 	invalidStates := []string{"0", "2", "6"}
 	for _, state := range invalidStates {
 		testNotAllowedCIStatus(s, state)
@@ -1667,44 +1667,6 @@ func (s *CheckCITestSuite) TestCheckCIStateNotAllowed0() {
 
 func TestCheckCI(t *testing.T) {
 	suite.Run(t, new(CheckCITestSuite))
-}
-
-func testChangeTimeIncorrect(s *CheckChangeTestSuite, currentTime time.Time, startDate time.Time, endDate time.Time) {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	timezone = "UTC"
-
-	var change = Change{
-		Type:             "1",
-		Number:           "CHG12345",
-		EndDate:          endDate,
-		ShortDescription: "Test",
-		StartDate:        startDate,
-		SysId:            "1",
-	}
-
-	expectedErrorText := fmt.Sprintf("Change %s (%s) is not in the valid time range. start date: %s and end date: %s (current date: %s)",
-		change.Number,
-		change.ShortDescription,
-		p.getLocalTime(change.StartDate),
-		p.getLocalTime(change.EndDate),
-		p.getLocalTime(currentTime))
-	loggerObj.On("Debug", expectedErrorText)
-
-	checkString, _ := p.checkChange(change)
-
-	assert.Equal(t, expectedErrorText, checkString, "Change that is started too early should not be accepted")
-	loggerObj.AssertExpectations(t)
-
-}
-
-func (s *CheckChangeTestSuite) TestCheckChangeTooEarly() {
-	currentTime := time.Now()
-	startDate := currentTime.Add(time.Hour)
-	endDate := currentTime.Add(time.Hour * 2)
-
-	testChangeTimeIncorrect(s, currentTime, startDate, endDate)
 }
 
 func (s *CheckChangeTestSuite) TestCheckChangeCorrectTime() {
@@ -1735,13 +1697,51 @@ func (s *CheckChangeTestSuite) TestCheckChangeCorrectTime() {
 	loggerObj.AssertExpectations(t)
 }
 
+func testChangeTimeIncorrect(s *CheckChangeTestSuite, currentTime time.Time, startDate time.Time, endDate time.Time, situation string) {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	timezone = "UTC"
+
+	var change = Change{
+		Type:             "1",
+		Number:           "CHG12345",
+		EndDate:          endDate,
+		ShortDescription: "Test",
+		StartDate:        startDate,
+		SysId:            "1",
+	}
+
+	expectedErrorText := fmt.Sprintf("Change %s (%s) is not in the valid time range. start date: %s and end date: %s (current date: %s)",
+		change.Number,
+		change.ShortDescription,
+		p.getLocalTime(change.StartDate),
+		p.getLocalTime(change.EndDate),
+		p.getLocalTime(currentTime))
+	loggerObj.On("Debug", expectedErrorText)
+
+	checkString, _ := p.checkChange(change)
+
+	assert.Equal(t, expectedErrorText, checkString, "Change that is started "+situation+" should not be accepted")
+	loggerObj.AssertExpectations(t)
+
+}
+
+func (s *CheckChangeTestSuite) TestCheckChangeTooEarly() {
+	currentTime := time.Now()
+	startDate := currentTime.Add(time.Hour)
+	endDate := currentTime.Add(time.Hour * 2)
+
+	testChangeTimeIncorrect(s, currentTime, startDate, endDate, "too early")
+}
+
 func (s *CheckChangeTestSuite) TestCheckChangeTooLate() {
 	timezone = "UTC"
 	currentTime := time.Now()
 	startDate := currentTime.Add(-2 * time.Hour)
 	endDate := currentTime.Add(-1 * time.Hour)
 
-	testChangeTimeIncorrect(s, currentTime, startDate, endDate)
+	testChangeTimeIncorrect(s, currentTime, startDate, endDate, "too late")
 }
 
 func TestCheckChange(t *testing.T) {
