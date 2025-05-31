@@ -404,7 +404,7 @@ Resources:
                   name: access-binding-incidentmanager
                 spec:
                   ordinal: 0
-                  friendlyName: "Incidentmanager (Write)"
+                  friendlyName: "Incidentmgr (Write)"
                   subjects:
                     - xforce-admins
                   roleTemplateRef:
@@ -425,14 +425,14 @@ Resources:
                 apiVersion: ephemeral-access.argoproj-labs.io/v1alpha1
                 kind: AccessBinding
                 metadata:
-                  name: access-binding-developer
+                  name: access-binding-readonly
                 spec:
                   ordinal: 2
                   friendlyName: "ReadOnly"
                   subjects:
                     - xforce-admins
                   roleTemplateRef:
-                    name: developer
+                    name: readonly
               mode: 000400
             '/opt/xforce/configmap-argocd-cm.yaml':
               content: !Sub |
@@ -544,10 +544,10 @@ Resources:
                 apiVersion: ephemeral-access.argoproj-labs.io/v1alpha1
                 kind: RoleTemplate
                 metadata:
-                  name: developer
+                  name: readonly
                 spec:
                   description: readonly permission in application {{.application}}
-                  name: "developer"
+                  name: "readonly"
                   policies:
                   - p, {{.role}}, applications, readonly, {{.project}}/{{.application}}, allow
                 ---
@@ -1192,6 +1192,7 @@ Resources:
                 patch_argocd_server
                 alias_tools
 
+                change_permissions
                 echo wait 5 minutes before enforcement of password change
                 sleep 300
                 force_password_change

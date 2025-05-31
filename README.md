@@ -17,8 +17,8 @@ found, then the request will be denied.
 
 ### Valid CIs
 
-A CI is valid, when the state of the CI is Installed, In maintenance, Pending
-install or Pending repair.
+A CI is valid, when the state of the CI is `Installed`, `In maintenance`,
+`Pending install` or `Pending repair`.
 
 ### Valid changes
 
@@ -36,6 +36,20 @@ date should be within (by default) one week. So when there is a valid change
 from 1-1-2025 to 31-12-2025 and the current date is 31-05-2025, this change
 will not be found by the plugin.
 
-## Installation
+### Information in ServiceNow
 
-...to be done...
+When the access is granted a note is created as part of the change in
+ServiceNow. In this way, users of ServiceNow can see who got access to deal
+with the change.
+
+### Exclusion roles
+
+When the ServiceNow API is not responding or when there is a big incident
+that requires fast response, it might be useful to have a "work around" for
+a limited number of employees. These employees can be part of a special
+exclusion role.
+
+When access is granted based on an exclusion role, a warning will be sent
+to the logs.
+
+## Installation
