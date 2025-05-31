@@ -1909,6 +1909,39 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithChange() {
 	// Don't assert logging, is done in other tests
 }
 
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithoutChange() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	timezone = "UTC"
+
+	cmdbCi := "a7b5e2"
+	requestURI := getChangeRequestURI(cmdbCi, "0")
+	responseText := `{"result":[]}`
+
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	serviceNowUrl = server.URL
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedInfoString := "No changes found"
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", expectedInfoString)
+
+	errorString, _, _ := p.processChanges("app-demoapp", cmdbCi)
+
+	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
+
+	// Don't assert logging, is done in other tests
+}
+
 func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsWithValidChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
@@ -2007,39 +2040,6 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsErrorInSec
 	s.Equal(changeRemainingTime.Minutes(), 0.0, "changeRemainingTime is incorrect, different from 0")
 
 	loggerObj.AssertExpectations(t)
-}
-
-func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithoutChange() {
-	t := s.T()
-	p, loggerObj := testGetPlugin()
-
-	timezone = "UTC"
-
-	cmdbCi := "a7b5e2"
-	requestURI := getChangeRequestURI(cmdbCi, "0")
-	responseText := `{"result":[]}`
-
-	var responseMap = make(map[string]string)
-	responseMap[requestURI] = responseText
-
-	serviceNowUsername = "testUser"
-	serviceNowPassword = "testPassword"
-
-	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
-	serviceNowUrl = server.URL
-	defer server.Close()
-	serviceNowUrl = server.URL
-
-	expectedInfoString := "No changes found"
-
-	loggerObj.On("Debug", mock.Anything)
-	loggerObj.On("Info", expectedInfoString)
-
-	errorString, _, _ := p.processChanges("app-demoapp", cmdbCi)
-
-	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
-
-	// Don't assert logging, is done in other tests
 }
 
 func simulateGlobalHttpRequestToServiceNow(startDateString string, endDateString string, installStatus string) *httptest.Server {
