@@ -175,7 +175,7 @@ func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultNoEnvVar() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
-	expectedErrorText := "Panic!"
+	expectedErrorText := "Expected error"
 
 	serviceNowUrl = ""
 	_ = os.Setenv("SERVICENOW_URL", "")
