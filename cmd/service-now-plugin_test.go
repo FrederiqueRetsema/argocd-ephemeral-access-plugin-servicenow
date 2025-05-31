@@ -386,7 +386,7 @@ func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecretSecretDoesntExist() {
 	loggerObj.AssertExpectations(t)
 }
 
-func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMap() {
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithExclusions() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
@@ -394,14 +394,48 @@ func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMap() {
 	exclusionsString := "administrator\nincidentmanager"
 
 	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
-	loggerObj.On("Debug", "Exclusions found: "+exclusionsString)
+	loggerObj.On("Debug", "Exclusions used: "+exclusionsString)
 
 	k8sclientset = testclient.NewClientset()
 	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", exclusionsString)
-	exceptions, errorText := p.getExclusionsFromConfigMap(namespace)
+	exceptions := p.getExclusionsFromConfigMap(namespace)
 
 	s.Equal([]string{"administrator", "incidentmanager"}, exceptions)
-	s.Equal("", errorText, "No errors expected")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithConfigMapWithoutExclusions() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	namespace := "argocd-ephemeral-access"
+	exclusionsString := ""
+
+	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
+	loggerObj.On("Debug", "Exclusions used: "+exclusionsString)
+
+	k8sclientset = testclient.NewClientset()
+	setConfigMap(namespace, ExclusionsConfigMapName, "exclusion-roles", exclusionsString)
+	exceptions := p.getExclusionsFromConfigMap(namespace)
+
+	s.Equal([]string{""}, exceptions, "No exceptions")
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithoutExclusions() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	namespace := "argocd-ephemeral-access"
+
+	loggerObj.On("Debug", fmt.Sprintf("Get exclusions from configmap [argocd-ephemeral-access]%s", ExclusionsConfigMapName))
+	loggerObj.On("Debug", "Error getting configmap controller-cm, does configmap exist in namespace argocd-ephemeral-access?")
+	loggerObj.On("Debug", "No exclusions used")
+
+	k8sclientset = testclient.NewClientset()
+	exceptions := p.getExclusionsFromConfigMap(namespace)
+
+	s.Equal([]string{}, exceptions)
 	loggerObj.AssertExpectations(t)
 }
 
@@ -1750,7 +1784,7 @@ func TestCheckChange(t *testing.T) {
 	suite.Run(t, new(CheckChangeTestSuite))
 }
 
-func (s *PluginHelperMethodsTestSuite) TestProcessCI() {
+func (s *PluginHelperMethodsTestSuite) TestProcessCIWithValidChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 	loggerObj.On("Debug", mock.Anything)
@@ -1772,6 +1806,34 @@ func (s *PluginHelperMethodsTestSuite) TestProcessCI() {
 
 	s.Equal("", errorString, "Errorstring should be empty")
 	s.Equal("1", sysId, "sys_id should be 1")
+	// Don't assert logging, is done in other tests
+}
+
+func (s *PluginHelperMethodsTestSuite) TestProcessCIWithoutValidCI() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+	loggerObj.On("Debug", mock.Anything)
+
+	ciName := "app-demoapp"
+	requestURI := "/api/now/table/cmdb_ci?name=app-demoapp&sysparm_fields=install_status,name,sys_id"
+	responseText := `{"result":[]}`
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	expectedErrorText := fmt.Sprintf("No CI with name %s found", ciName)
+	loggerObj.On("Error", expectedErrorText)
+
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+
+	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	errorString, sysId := p.processCI(ciName)
+
+	s.Equal(expectedErrorText, errorString, "Errorstring should be correct")
+	s.Equal("", sysId, "sys_id should be empty")
 	// Don't assert logging, is done in other tests
 }
 
@@ -1806,7 +1868,7 @@ func getChangeRequestURI(cmdb_ci string, sysparm_offset string) string {
 	return requestURI
 }
 
-func (s *PluginHelperMethodsTestSuite) TestProcessChanges() {
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 	loggerObj.On("Debug", mock.Anything)
@@ -1847,7 +1909,7 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChanges() {
 	// Don't assert logging, is done in other tests
 }
 
-func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindows() {
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsWithValidChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
 
@@ -1900,6 +1962,84 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindows() {
 	s.Equal("CHG300044", validChange.Number, "Numbers must be equal")
 	s.Equal("test10", validChange.ShortDescription, "Short descriptions must be equal")
 	loggerObj.AssertExpectations(t)
+}
+
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsErrorInSecondBatch() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	timezone = "UTC"
+
+	ciName := "app-demoapp"
+	var responseMap = make(map[string]string)
+
+	requestURI := getChangeRequestURI("1", "0")
+
+	responseText := `{"result":[{"type":"1", "number":"CHG300030", "short_description":"test", "start_date":"2025-05-15 17:00:00", "end_date":"2025-05-15 17:45:00"},
+                                {"type":"1", "number":"CHG300031", "short_description":"test2", "start_date":"2025-05-15 18:00:00", "end_date":"2025-05-15 18:45:00"},
+                                {"type":"1", "number":"CHG300032", "short_description":"test3", "start_date":"2025-05-15 19:00:00", "end_date":"2025-05-15 19:45:00"},
+                                {"type":"1", "number":"CHG300033", "short_description":"test4", "start_date":"2025-05-15 20:00:00", "end_date":"2025-05-15 20:45:00"},
+                                {"type":"1", "number":"CHG300034", "short_description":"test5", "start_date":"2025-05-15 21:00:00", "end_date":"2025-05-15 21:45:00"}]}`
+
+	responseMap[requestURI] = responseText
+
+	requestURI = getChangeRequestURI("1", "5")
+	responseText = `{"result":[]}`
+
+	responseMap[requestURI] = responseText
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	serviceNowUrl = server.URL
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedInfoString := "No changes found"
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", expectedInfoString)
+
+	errorString, changeRemainingTime, _ := p.processChanges(ciName, "1")
+
+	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
+	s.Equal(changeRemainingTime.Minutes(), 0.0, "changeRemainingTime is incorrect, different from 0")
+
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithoutChange() {
+	t := s.T()
+	p, loggerObj := testGetPlugin()
+
+	timezone = "UTC"
+
+	cmdbCi := "a7b5e2"
+	requestURI := getChangeRequestURI(cmdbCi, "0")
+	responseText := `{"result":[]}`
+
+	var responseMap = make(map[string]string)
+	responseMap[requestURI] = responseText
+
+	serviceNowUsername = "testUser"
+	serviceNowPassword = "testPassword"
+
+	server := simulateSimpleHttpRequestToServiceNow(t, responseMap)
+	serviceNowUrl = server.URL
+	defer server.Close()
+	serviceNowUrl = server.URL
+
+	expectedInfoString := "No changes found"
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", expectedInfoString)
+
+	errorString, _, _ := p.processChanges("app-demoapp", cmdbCi)
+
+	s.Equal(expectedInfoString, errorString, "Errorstring should be correct")
+
+	// Don't assert logging, is done in other tests
 }
 
 func simulateGlobalHttpRequestToServiceNow(startDateString string, endDateString string, installStatus string) *httptest.Server {
@@ -2061,8 +2201,12 @@ func (s *PublicMethodsTestSuite) TestGrantAccessExclusionRole() {
 
 func (s *PublicMethodsTestSuite) TestGrantAccessNoCIName() {
 	t := s.T()
-
 	p, loggerObj := testGetPlugin()
+
+	_ = os.Setenv("TIMEZONE", "UTC")
+	_ = os.Setenv("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "")
+	_ = os.Setenv("SERVICENOW_SECRET_NAME", "")
+	_ = os.Setenv("SERVICENOW_URL", "https://example.com")
 
 	errorText := "No CI name found: expected label with name ci-name in application demoapp"
 
@@ -2079,6 +2223,37 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoCIName() {
 	response, err := p.GrantAccess(&ar, &app)
 
 	s.Equal(errorText, response.Message, "Response message should be correct")
+	s.Equal(plugin.GrantStatusDenied, response.Status, "Response status should be correct")
+	s.Equal(nil, err, "Error should be nil")
+
+	loggerObj.AssertExpectations(t)
+}
+
+func (s *PublicMethodsTestSuite) TestGrantAccessNoServiceNowURL() {
+	t := s.T()
+
+	p, loggerObj := testGetPlugin()
+
+	_ = os.Setenv("TIMEZONE", "UTC")
+	_ = os.Setenv("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "")
+	_ = os.Setenv("SERVICENOW_SECRET_NAME", "")
+	_ = os.Setenv("SERVICENOW_URL", "")
+
+	expectedErrorText := "No Service Now URL given (environment variable SERVICENOW_URL is empty)"
+
+	ar, app := testGetArApp()
+	var m = make(map[string]string)
+	m["ci-name"] = "app-demoapp"
+	app.Labels = m
+
+	unittest = true
+
+	loggerObj.On("Debug", mock.Anything)
+	loggerObj.On("Info", "Call to GrantAccess: username: Test User, role: administrator, application: [argocd]demoapp, duration: 4h0m0s")
+	loggerObj.On("Error", expectedErrorText)
+	response, err := p.GrantAccess(&ar, &app)
+
+	s.Equal(expectedErrorText, response.Message, "Response message should be correct")
 	s.Equal(plugin.GrantStatusDenied, response.Status, "Response status should be correct")
 	s.Equal(nil, err, "Error should be nil")
 
