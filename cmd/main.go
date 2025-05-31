@@ -394,6 +394,7 @@ func (p *ServiceNowPlugin) getFromServiceNowAPI(requestURI string) ([]byte, stri
 		p.Logger.Error(errorText)
 		return []byte{}, errorText
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
@@ -432,6 +433,7 @@ func (p *ServiceNowPlugin) patchServiceNowAPI(requestURI string, data string) ([
 		p.Logger.Error(errorText)
 		return nil, errorText
 	}
+
 	defer func() {
 		_ = resp.Body.Close()
 	}()
@@ -519,7 +521,6 @@ func (p *ServiceNowPlugin) getChangeRequestURI(ciSysId string, sysparmOffset int
 		ciSysId,
 		fromDateString,
 		endDateString)
-	fmt.Println(selection)
 
 	// selection should be encoded for url (the rest doesn't matter)
 	selection = strings.ReplaceAll(selection, " ", "%20")
@@ -541,7 +542,7 @@ func (p *ServiceNowPlugin) getChangeRequestURI(ciSysId string, sysparmOffset int
 	return requestURI
 }
 
-func (p *ServiceNowPlugin) getChanges(ciName string, ciSysId string, sysparmOffset int) ([]*ChangeServiceNow, int, string) {
+func (p *ServiceNowPlugin) getChanges(ciSysId string, sysparmOffset int) ([]*ChangeServiceNow, int, string) {
 
 	requestURI := p.getChangeRequestURI(ciSysId, sysparmOffset)
 	response, errorText := p.getFromServiceNowAPI(requestURI)
@@ -647,7 +648,7 @@ func (p *ServiceNowPlugin) processCI(ciName string) (string, string) {
 func (p *ServiceNowPlugin) processChanges(ciName string, ciSysId string) (string, time.Duration, *Change) {
 	var SysparmOffset = 0
 
-	serviceNowChanges, SysparmOffset, errorText := p.getChanges(ciName, ciSysId, SysparmOffset)
+	serviceNowChanges, SysparmOffset, errorText := p.getChanges(ciSysId, SysparmOffset)
 	if errorText != "" {
 		var noDuration = 0 * time.Minute
 		return errorText, noDuration, nil
@@ -676,7 +677,7 @@ func (p *ServiceNowPlugin) processChanges(ciName string, ciSysId string) (string
 			errorText = "No valid change found"
 			break
 		} else {
-			serviceNowChanges, SysparmOffset, errorText = p.getChanges(ciName, ciSysId, SysparmOffset)
+			serviceNowChanges, SysparmOffset, errorText = p.getChanges(ciSysId, SysparmOffset)
 			if errorText != "" {
 				break
 			}
