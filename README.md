@@ -1,56 +1,41 @@
-# Plugin Example
+# ArgoCD Ephemeral Access Plugin for ServiceNow
 
-[![argocd-ephemeral-access-plugin-servicenow](https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-test/actions/workflows/merge-to-main.yml/badge.svg)](https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-test/actions/workflows/merge-to-main.yml)
-[![Go Coverage](https://github.com/frederiqueretsema/argocd-ephemeral-access-plugin-test/wiki/coverage.svg)](https://raw.githack.com/wiki/frederiqueretsema/argocd-ephemeral-access-plugin-test/coverage.html)
+[![argocd-ephemeral-access-plugin-servicenow](https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/actions/workflows/merge-to-main.yml/badge.svg)](https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/actions/workflows/merge-to-main.yml)
+[![Go Coverage](https://github.com/frederiqueretsema/argocd-ephemeral-access-plugin-servicenow/wiki/coverage.svg)](https://raw.githack.com/wiki/frederiqueretsema/argocd-ephemeral-access-plugin-servicenow/coverage.html)
 
 ## Overview
 
-This folder provides an example of how EphemeralAccess plugins can be
-implemented.
+This plugin provides the connection between the Ephemeral Access Extension
+(<https://github.com/argoproj-labs/argocd-ephemeral-access>) and ServiceNow.
+The plugin is developed using version v0.1.6 of the extension.
 
-## Prereqs
+When a user does a request for more permissions, the plugin will connect to
+ServiceNow. It checks the validity of the CI that is connected to the
+application. When the CI is valid, the plugin will search for relevant changes.
+When the change is found, the access will be granted. When no valid changes are
+found, then the request will be denied.
 
-- Plugin is a feature introduced in the EphemeralAccess v0.1.5
-- Plugins need to be implemented in Go
+### Valid CIs
 
-## Details
+A CI is valid, when the state of the CI is Installed, In maintenance, Pending
+install or Pending repair.
 
-EphemeralAccess plugins are binaries compiled from a Go code. The
-plugin binary needs to be mounted in the pre-configured
-EphemeralAccess controller volume.
+### Valid changes
 
-The strategy used to get the plugin binary available to the
-EphemeralAccess controller is:
+A change is valid, when the current date and time is within the range of the
+start date and the end date. Apart from that, the change should have the
+following properties:
 
-1. Create a docker image containing the plugin binary.
-1. Patch the EphemeralAccess controller to add an init-container that
-   uses your plugin docker image.
-1. Configure a volume for the plugin directory.
-1. Mount the plugin volume in the init-container and in the controller filesystems.
-1. Copy the binary from the docker image in the plugin directory.
+* The state should be `Implement`
+* The phase should be `Requested`
+* The change should be `Approved`
+* The change should be `Active`
 
-## How to Create a Plugin
+To speed up the search of the ServiceNow API, both the start date and the end
+date should be within (by default) one week. So when there is a valid change
+from 1-1-2025 to 31-12-2025 and the current date is 31-05-2025, this change
+will not be found by the plugin.
 
-While the steps above may sound complicated and error prone, we
-provide a fully functional plugin as part of this directory. As a
-plugin writer all you have to do is following the steps below:
+## Installation
 
-1. Copy this plugin directory in a separate Git repo where your plugin
-   is going to live.
-2. Change the Go module name to where your git repo is defined.
-   Example: `go mod edit -module github.com/some-org/plugin-repo`
-3. Implement the plugin logic in the `cmd/main.go` following the
-   documentation provided in that file.
-4. Create a new image building the provided `Dockerfile`. Example:
-   `docker build -t myplugin:latest .`
-5. Push the new image to your Docker registry. Example: `docker push
-   myplugin:latest`
-6. Change the `manifests/plugin/controller-patch.yaml` file replacing
-   the text `CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE` with the image
-   created in the previous step. Example `myplugin:latest`
-
-If you had success executing the steps above, you can install the
-EphemeralAccess extension with your plugin configured by running the
-following command:
-
-`kustomize build ./manifests | kubectl apply -f -`
+...to be done...
