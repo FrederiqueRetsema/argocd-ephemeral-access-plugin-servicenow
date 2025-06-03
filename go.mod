@@ -2,7 +2,7 @@ module plugin
 
 go 1.24.0
 
-toolchain go1.24.2
+toolchain go1.24.3
 
 require (
 	github.com/argoproj-labs/argocd-ephemeral-access v0.1.5-0.20250307201400-f46ec5ca84cd
