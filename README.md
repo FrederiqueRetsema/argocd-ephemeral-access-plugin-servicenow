@@ -53,3 +53,33 @@ When access is granted based on an exclusion role, a warning will be sent
 to the logs.
 
 ## Installation
+
+## Versioning
+
+### Patch releases: for example v0.0.0 to v0.0.1
+
+We are using Renovate for automatically receiving updates of go modules etc.
+This means that when the last number of a version is changing (f.e.
+v0.0.0 to v0.0.1) then no other changes than updating versions took place.
+
+### Minor releases: for example v0.0.0 to v0.1.0
+
+When the plugin itself changes, for example when the Ephemeral Access
+Extension releases a new version where this plugin can get rid of work
+arounds, then a new minor release will be created.
+
+### Major releases: for example v0.0.0 to v1.0.0
+
+When the plugin changes with breaking changes (f.e. when configuration
+currently is in environment variables, but in a new release the same
+configuration is in a configmap), then the version will bump with a major
+release number.
+
+Please mind, that bumping up a major release number doesn't say anything
+about the amount of changes, or the amount of changed functionality that
+is in the release
+
+### No version changes for documentation
+
+When documentation or demo code is changed and the plugin itself
+remains the same, then the version number is not changed.
