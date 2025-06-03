@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/argoproj-labs/argocd-ephemeral-access v0.1.6
 	github.com/hashicorp/go-hclog v1.5.0
-	github.com/hashicorp/go-plugin v1.6.1
+	github.com/hashicorp/go-plugin v1.6.3
 	github.com/stretchr/testify v1.10.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
