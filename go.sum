@@ -1,5 +1,7 @@
 github.com/argoproj-labs/argocd-ephemeral-access v0.1.5-0.20250307201400-f46ec5ca84cd h1:aBl3jnDi/R9vafQskd2HZO0O0/tKSkORhBBDd48/wag=
 github.com/argoproj-labs/argocd-ephemeral-access v0.1.5-0.20250307201400-f46ec5ca84cd/go.mod h1:7z65r86PP+txae50K2MgTFmnO87X+JJkmp6h3YMQp00=
+github.com/argoproj-labs/argocd-ephemeral-access v0.1.6 h1:iCNSs+ZlAQiDA/lcv2v73S8yoOfaIZD1qWNQ89GWpuk=
+github.com/argoproj-labs/argocd-ephemeral-access v0.1.6/go.mod h1:uNX3UFpcLJ+/oMltyPiEx1W05I43ZJKlZlJzpwL4tPM=
 github.com/bufbuild/protocompile v0.4.0 h1:LbFKd2XowZvQ/kajzguUp2DC9UEIQhIq77fZZlaQsNA=
 github.com/bufbuild/protocompile v0.4.0/go.mod h1:3v93+mbWn/v3xzN+31nwkJfrEpAUwp+BagBSZWx+TP8=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
@@ -15,6 +17,8 @@ github.com/evanphx/json-patch/v5 v5.9.0 h1:kcBlZQbplgElYIlo/n1hJbls2z/1awpXxpRi0
 github.com/evanphx/json-patch/v5 v5.9.0/go.mod h1:VNkHZ/282BpEyt/tObQO8s5CMPmYYq14uClGH4abBuQ=
 github.com/expr-lang/expr v1.16.9 h1:WUAzmR0JNI9JCiF0/ewwHB1gmcGw5wW7nWt8gc6PpCI=
 github.com/expr-lang/expr v1.16.9/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
+github.com/expr-lang/expr v1.17.2 h1:o0A99O/Px+/DTjEnQiodAgOIK9PPxL8DtXhBRKC+Iso=
+github.com/expr-lang/expr v1.17.2/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
 github.com/fatih/color v1.15.0 h1:kOqh6YHBtK8aywxGerMG2Eq3H6Qgoqeo13Bk2Mv/nBs=
 github.com/fatih/color v1.15.0/go.mod h1:0h5ZqXfHYED7Bhv2ZJamyIOUej9KtShiJESRwBDUSsw=
