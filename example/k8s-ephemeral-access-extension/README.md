@@ -5,8 +5,8 @@
 ## Introduction
 
 In this document I will explain the configuration of the Ephemeral Access
-Extension, version `v0.1.6`. I will keep the plugin out of the discussion, more
-about that can be read in a specific example configuration for the plugin.
+Extension, version `v0.1.6`. I will keep the plugin out of the discussion for
+now.
 
 In this example I will walk you through the different settings that are used by
 the extension, I will focus on the permissions within ArgoCD. For this demo I'm
@@ -65,6 +65,15 @@ application has the label `environment:production`:
 `kubectl get application -n argocd demoapp -o yaml`
 
 ![labels](./images/demoapp-labels.png)
+
+You can also see that the application has it permissions managed by a project.
+This is mandattory. The project is also a Kubernetes resource:
+
+![project](./images/project.png)
+
+For this application, the permissions are very broad. That doesn't matter for this
+example: these permissions are permissions for the application itself, not for the
+user that is changing the application.
 
 When you press the `Permission`, the GUI already knows what roles can be
 assumed by the current user. It knows this by looking in the AccessBindings:
