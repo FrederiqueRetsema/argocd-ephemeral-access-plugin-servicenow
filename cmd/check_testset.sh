@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PROGRAM_FILE="main.go"
-TEST_FILE="service-now-plugin_test.go"
+TEST_FILE="main_test.go"
 ERROR_FOUND=0
 for function in $(grep "func" ${PROGRAM_FILE} | grep -v main\( | awk '{print $4}'| awk -F'(' '{print $1}')
 do

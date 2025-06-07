@@ -164,7 +164,7 @@ func (p *ServiceNowPlugin) getCredentialsFromSecret(namespace string, secretName
 
 	secret, err := k8sclientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		errorText = fmt.Sprintf("Error getting secret %s, does secret exist in namespace %s?", secretName, namespace)
+		errorText = fmt.Sprintf("Error getting secret %s, does secret exist in namespace %s? Error: %s", secretName, namespace, err.Error())
 		p.Logger.Error(errorText)
 	}
 
@@ -196,13 +196,13 @@ func (p *ServiceNowPlugin) getGlobalVars() string {
 	serviceNowCredentialsError := ""
 
 	serviceNowUrl, serviceNowURLError = p.getEnvVarWithoutDefault("SERVICENOW_URL", "No Service Now URL given (environment variable SERVICENOW_URL is empty)")
-	serviceNowUsername, serviceNowPassword, serviceNowCredentialsError = p.getServiceNowCredentials()
-
 	timezone = p.getEnvVarWithDefault("TIMEZONE", "UTC")
 	ciLabel = p.getEnvVarWithDefault("CI_LABEL", "ci-name")
 	ephemeralAccessPluginNamespace = p.getEnvVarWithDefault("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "argocd-ephemeral-access")
 	exclusionRoles = p.getExclusionsFromConfigMap(ephemeralAccessPluginNamespace)
 	timeWindowChangesDays = p.convertToInt("environment variable TIME_WINDOW_CHANGES_DAYS", p.getEnvVarWithDefault("TIME_WINDOW_CHANGES_DAYS", "7"), 7)
+
+	serviceNowUsername, serviceNowPassword, serviceNowCredentialsError = p.getServiceNowCredentials()
 
 	return errorText + serviceNowURLError + serviceNowCredentialsError
 }
@@ -361,12 +361,10 @@ func (p *ServiceNowPlugin) checkAPIResult(resp *http.Response, body []byte) ([]b
 	errorText := ""
 	if (resp.StatusCode >= 500 && resp.StatusCode <= 599) || strings.Contains(string(body), "<html>") {
 		errorText = "ServiceNow API server is down"
-		p.Logger.Error(errorText)
 	}
 
 	if resp.StatusCode >= 400 && resp.StatusCode <= 499 {
 		errorText = "ServiceNow API changed"
-		p.Logger.Error(errorText)
 	}
 
 	return body, errorText
@@ -760,7 +758,7 @@ func (p *ServiceNowPlugin) GrantAccess(ar *api.AccessRequest, app *argocd.Applic
 		p.postNote(validChange.SysId, note)
 		return p.grantRequest(grantedUIText)
 	} else {
-		p.Logger.Error(fmt.Sprintf("Access Denied for %s, role %s: %s", requesterName, requestedRole, errorString))
+		p.Logger.Warn(fmt.Sprintf("Access Denied for %s, role %s: %s", requesterName, requestedRole, errorString))
 		return p.denyRequest(errorString)
 	}
 }
