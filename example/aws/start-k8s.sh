@@ -1,11 +1,11 @@
 #!/bin/bash
-PROFILE="xforce-sandbox1"
+PROFILE="xforce-sandbox2"
 CONSULTANT_NAME="frederique"                                # must be lowercase
 CONSULTANT_EMAIL="frederique.retsema@conclusionxforce.nl"
 GROUP_NAME="xforce-admins"
-HOSTED_ZONE_NAME="sandbox1.prutsforce.nl"                  # Without a dot, dot will be added where necessary
+HOSTED_ZONE_NAME="sandbox2.prutsforce.nl"                  # Without a dot, dot will be added where necessary
 DEFAULT_PASSWORD="ConclusionXforce2025!"
-CERTIFICATE_ID="cf96f0b4-6c3d-4cf6-b6ac-86b6cbaabc86"      # *.sandbox1.prutsforce.nl
+CERTIFICATE_ID="867a7fae-455f-4e3c-8efd-7bf2d37fe990"      # *.sandbox2.prutsforce.nl
 SERVICENOW_SECRET_NAME="servicenow-secret"
 SERVICENOW_URL="https://dev230194.service-now.com"
 LOCAL_TIMEZONE="Europe/Amsterdam"

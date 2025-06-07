@@ -8,7 +8,7 @@ Parameters:
     Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   EC2InstanceType:
     Type: String
-    Default: t2.xlarge  # t2.large is 16 GiB ram, 4 vCPUs
+    Default: t2.large  # t2.large is 8 GiB ram, 2 vCPUs
 
   ConsultantName:
     Type: String

@@ -1,6 +1,6 @@
 # Live example of the Ephemeral Access Extension
 
-![Top-of-page](./top-of-page.png)
+![Top-of-page](./images/top-of-page.png)
 
 ## Introduction
 
@@ -14,9 +14,11 @@ assuming that you installed argocd in namespace `argocd` and that you installed
 the Ephemeral Access Extension in the namespace `argocd-ephemeral-access`.
 
 For a demo CloudFormation template that deploys a three node Kubernetes
-environment with the Ephemeral Access Extension in AWS you can use my Github
-repository [1]. You can follow along with the commands in this blog if you
-like.
+environment with (just) the Ephemeral Access Extension in AWS you can use my
+Github repository [1]. You can follow along with the commands in this blog if
+you like.
+
+I included the manifest files in this directory, for further reference.
 
 ## How the Ephemeral Access Extension works
 
@@ -35,7 +37,7 @@ The groups are configured in the rbac configuration:
 
 `kubectl get configmap -n argocd argocd-rbac-cm -o yaml`
 
-![argocd-rbac-cm](./argocd-rbac-cm.png)
+![argocd-rbac-cm](./images/argocd-rbac-cm.png)
 
 The permissions in this file should be the default permissions when no extra
 permissions are requested or granted. Even though my administrator group will
@@ -52,23 +54,24 @@ can be found in the deployment of the argocd-server.
 `kubectl get deployment -n argocd argocd-server -o yaml | less`
 
 This gives a lot of output. What you're searching for is in the initContainers
-part of the output:
+part of the output. Or, even more specifically, the environment variables part
+of the initcontainers part:
 
-![initContainers](./initContainers-part-of-deployment-argocd-server.png)
+![initContainers](./images/initContainers-part-of-deployment-argocd-server.png)
 
 This means that the Ephemeral Access Extension will only show up when your
 application has the label `environment:production`:
 
-`kubectl get application -n argocd demoapp`
+`kubectl get application -n argocd demoapp -o yaml`
 
-![labels](./demoapp-labels.png)
+![labels](./images/demoapp-labels.png)
 
 When you press the `Permission`, the GUI already knows what roles can be
 assumed by the current user. It knows this by looking in the AccessBindings:
 
 `kubectl get accessbindings -n argocd`
 
-![accessbindings](./access-bindings.png)
+![accessbindings](./images/access-bindings.png)
 
 Though we could print them with `-o yaml`, it's more convenient to print them
 in the way they were created. You can find these scripts in the `/opt/xforce`
@@ -76,7 +79,9 @@ directory on the demo server that is deployed via AWS CloudFormation:
 
 `cat /opt/xforce/accessbinding.yaml`
 
-![accessbindings-at-creation](./accessbindings-at-creation.png)
+![accessbindings-at-creation](./images/accessbindings-at-creation.png)
+
+I included the file in this example directory on Github as well.
 
 The AccessBindings are the connections between the OIDC group (in my case:
 `xforce-admins`) with the roles in the Argocd Access Extension (in my case:
@@ -103,12 +108,14 @@ running in the `argocd-ephemeral-access` namespace:
 
 `kubectl get deployments -n argocd-ephemeral-access`
 
-![deployments](./deployments.png)
+![deployments](./images/deployments.png)
 
 The `argocd-server` knows where to find the backend server by looking in the
 configuration in the `argocd-cm` configmap:
 
-![argocd-cm](./argocd-cm.png)
+`kubectl get configmap -n argocd argocd-cm -o yaml`
+
+![argocd-cm](./images/argocd-cm.png)
 
 ## Create Access Request (arrow 4)
 
@@ -118,7 +125,7 @@ as resources:
 
 `kubectl get accessrequests -n argocd -o yaml`
 
-![accessrequests](./accessrequest.png)
+![accessrequests](./images/accessrequest.png)
 
 You see two items in the history: the `initiated` part is created by the backend.
 
@@ -141,7 +148,7 @@ the creation:
 
 `cat /opt/xforce/roletemplate.yaml`
 
-![roletemplates](./roletemplate-at-creation.yaml)
+![roletemplates](./images/roletemplate-at-creation.png)
 
 You can see that the role templates contain variables, like the name of the
 application. This is useful when the project is changed: it is then visible
@@ -158,13 +165,13 @@ When the text of the role is rendered, the controller will add the role to the
 project: in the `settings` menu on the left, choose for `project`, then
 `demoproject`, then `Roles`:
 
-![roles-in-project](./demoproject-roles.png)
+![roles-in-project](./images/demoproject-roles.png)
 
 You can see here that the rendering used the name of the application (demoapp)
 in the name of the role. When we open the role, we can see what permissions are
 granted to whom:
 
-![devops-role](./devops-role.png)
+![devops-role](./images/devops-role.png)
 
 The requestor now has the extra permissions, added by the Ephemeral Access
 Extension. The controller will also revoke the permissions when the duration of
