@@ -970,26 +970,6 @@ Resources:
                   systemctl start --now buildkitd
                 }
 
-                function install_kustomize() {
-                  show_function "install_kustomize"
-
-                  mkdir -p /opt/kustomize
-                  cd /opt/kustomize
-                  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash                
-                  ln -s $(pwd)/kustomize /usr/local/bin/kustomize
-                }
-
-                function configure_plugin() {
-                  show_function "configure_plugin"
-
-                  cd /clone/argocd-ephemeral-access-plugin-servicenow/
-
-                  # There is a slash in the repository definition of AWS, therefore use ^ instead of (commonly used) / in sed s
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^frederiquer/argocd-ephemeral-access-plugin-servicenow:${EphemeralAccessExtensionPluginServiceNowVersion}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                }
-
                 function install_argocd() {
                   show_function "install_argocd"
 
@@ -1050,7 +1030,6 @@ Resources:
                   show_function "install_ephemeral_access_extension"
 
                   kubectl apply -f https://github.com/argoproj-labs/argocd-ephemeral-access/releases/download/${EphemeralAccessExtensionVersion}/install.yaml
-                  kubectl create secret generic aws-ecr-secret --namespace ${ArgoCDEphemeralAccessNamespace} --from-file=.dockerconfigjson=/root/.docker/config.json --type=kubernetes.io/dockerconfigjson
                 }
 
                 function add_roles() {
@@ -1060,32 +1039,13 @@ Resources:
                   kubectl apply -n ${ArgoCDNamespace} -f /opt/xforce/roletemplate.yaml 
                 }
 
-                function install_plugin() {
-                  show_function "install_plugin"
-
-                  cd /clone/argocd-ephemeral-access-plugin-servicenow
-                  kustomize build ./manifests | kubectl apply -f -
-
-                  kubectl apply -f /opt/xforce/remove-accessrequest-job-sa.yaml
-                }
-
                 function patch_argocd_server() {
                   show_function "patch_argocd_server"
 
                   kubectl patch configmap -n ${ArgoCDNamespace} argocd-cmd-params-cm --patch-file /opt/xforce/configmap-argocd-cmd-params-cmd.yaml
                   kubectl patch configmap -n ${ArgoCDNamespace} argocd-rbac-cm --patch-file /opt/xforce/configmap-argocd-rbac-cm.yaml
                   kubectl patch configmap -n ${ArgoCDNamespace} argocd-cm --patch-file /opt/xforce/configmap-argocd-cm.yaml
-                  kubectl patch configmap -n ${ArgoCDEphemeralAccessNamespace} controller-cm --patch-file /opt/xforce/configmap-argocd-ephemeral-access-controller-cm.yaml
                   kubectl patch deployment argocd-server --patch-file=/opt/xforce/ui-extension.yaml -n argocd
-
-                  # Patch will overwrite all other permissions, so just add the new permissions to the current role
-                  kubectl get clusterrole controller-role -o yaml > /tmp/controller-role.yaml
-                  cat /tmp/controller-role.yaml /opt/xforce/clusterrole-controller-role.yaml > /tmp/controller-role.yaml.$$
-                  kubectl apply -f /tmp/controller-role.yaml.$$
-
-                  # Pod needs to be restarted to take effect
-                  sleep 5
-                  kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} | grep controller | awk '{print "kubectl delete pod -n ${ArgoCDEphemeralAccessNamespace} "$1}' | bash
                 }
 
                 function force_password_change() {
@@ -1120,8 +1080,6 @@ Resources:
 
                 install_nerdctl
                 install_buildkit
-                install_kustomize
-                configure_plugin
 
                 install_argocd
                 make_argo_service_accessible_from_remote ${ArgoCDNamespace} argocd-server http 30123
@@ -1132,7 +1090,6 @@ Resources:
                 install_ephemeral_access_extension
 
                 add_roles
-                install_plugin
                 patch_argocd_server
 
                 change_permissions

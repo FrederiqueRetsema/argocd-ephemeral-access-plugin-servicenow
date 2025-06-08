@@ -4,9 +4,9 @@
 
 The CloudFormation template in this directory can be used to look at the
 Ephemeral Access Extension plugin for ServiceNow from an end user perspective.
-The cloudformation template will pull a specific version of the plugin from
-Docker Hub when the Virtual Machine is started. The virtual machine contains
-tools to rebuild the plugin and deploy new manifest files as well.
+The cloudformation template will install ArgoCD and the Ephemeral Access
+Extension when the Virtual Machine is started. It does not install the plugin
+itself.
 
 ## Installation
 

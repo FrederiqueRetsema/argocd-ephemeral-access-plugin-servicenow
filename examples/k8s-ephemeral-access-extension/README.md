@@ -14,9 +14,10 @@ assuming that you installed argocd in namespace `argocd` and that you installed
 the Ephemeral Access Extension in the namespace `argocd-ephemeral-access`.
 
 For a demo CloudFormation template that deploys a three node Kubernetes
-environment with (just) the Ephemeral Access Extension in AWS you can use my
-Github repository [1]. You can follow along with the commands in this blog if
-you like.
+environment with (just) the Ephemeral Access Extension in AWS you can use the
+CloudFormation template in the
+/examples/dev-and-test-of-plugin/aws-pre-install-plugin directory in this
+repository. You can follow along with the commands in this blog if you like.
 
 I included the manifest files in this directory, for further reference.
 
@@ -25,13 +26,13 @@ I included the manifest files in this directory, for further reference.
 ## Login (arrow 1)
 
 Let's first look at the design that is part of the README.md of the Github
-repository of the Ephemeral Access Extension[2]:
+repository of the Ephemeral Access Extension[1]:
 
 ![Design](https://github.com/argoproj-labs/argocd-ephemeral-access/raw/main/docs/assets/EphemeralAccessExtensionDiagram.png)
 
 Users have to log on to ArgoCD using OIDC. When you didn't configure
 this yet, you can read my blog on the Conclusion Xforce Tech Playground about
-this [3].
+this [2].
 
 The groups are configured in the rbac configuration:
 
@@ -191,11 +192,8 @@ Ephemeral Access Extension where to find defaults and how to change them.
 
 ## Links
 
-[1] Github repository with working AWS CloudFormation template of OIDC and
-the Ephemeral Access Extension:
-<https://github.com/FrederiqueRetsema/ArgoCD-SSO-based-on-AWS-Cognito-Userpools>  
-[2] Github repository of the Ephemeral Access Extension:
+[1] Github repository of the Ephemeral Access Extension:
 <https://github.com/argoproj-labs/argocd-ephemeral-access>  
-[3] More information about connecting ArgoCD to AWS Cognito via OIDC in the blog
+[2] More information about connecting ArgoCD to AWS Cognito via OIDC in the blog
 on the Conclusion Xforce Tech Playground:
 <https://conclusionxforce.cloud/blog/argocd-sso-based-on-aws-cognito-userpools/>  
