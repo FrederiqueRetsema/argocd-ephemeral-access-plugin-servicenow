@@ -23,9 +23,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: frederiquer/argocd-plugin-servicenow:latest
+          tags: frederiquer/argocd-ephemeral-access-plugin-servicenow:latest
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: frederiquer/argocd-plugin-servicenow:${{ github.ref_name }}
+          tags: frederiquer/argocd-ephemeral-access-plugin-servicenow:${{ github.ref_name }}
