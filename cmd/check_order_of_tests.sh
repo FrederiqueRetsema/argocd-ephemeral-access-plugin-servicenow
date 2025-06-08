@@ -1,5 +1,5 @@
 PROGRAM_FILE=./main.go
-TEST_FILE=./service-now-plugin_test.go
+TEST_FILE=./main_test.go
 
 
 GREP_RESULT=$(grep func ${PROGRAM_FILE}| awk '{print $4}'|awk -F'(' '{print $1}')

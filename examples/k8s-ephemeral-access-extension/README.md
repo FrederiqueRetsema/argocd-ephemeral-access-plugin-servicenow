@@ -1,12 +1,12 @@
 # Live example of the Ephemeral Access Extension
 
-![Top-of-page](./top-of-page.png)
+![Top-of-page](./images/top-of-page.png)
 
 ## Introduction
 
 In this document I will explain the configuration of the Ephemeral Access
-Extension, version `v0.1.6`. I will keep the plugin out of the discussion, more
-about that can be read in a specific example configuration for the plugin.
+Extension, version `v0.1.6`. I will keep the plugin out of the discussion for
+now.
 
 In this example I will walk you through the different settings that are used by
 the extension, I will focus on the permissions within ArgoCD. For this demo I'm
@@ -14,28 +14,31 @@ assuming that you installed argocd in namespace `argocd` and that you installed
 the Ephemeral Access Extension in the namespace `argocd-ephemeral-access`.
 
 For a demo CloudFormation template that deploys a three node Kubernetes
-environment with the Ephemeral Access Extension in AWS you can use my Github
-repository [1]. You can follow along with the commands in this blog if you
-like.
+environment with (just) the Ephemeral Access Extension in AWS you can use the
+CloudFormation template in the
+/examples/dev-and-test-of-plugin/aws-pre-install-plugin directory in this
+repository. You can follow along with the commands in this blog if you like.
+
+I included the manifest files in this directory, for further reference.
 
 ## How the Ephemeral Access Extension works
 
 ## Login (arrow 1)
 
 Let's first look at the design that is part of the README.md of the Github
-repository of the Ephemeral Access Extension[2]:
+repository of the Ephemeral Access Extension[1]:
 
 ![Design](https://github.com/argoproj-labs/argocd-ephemeral-access/raw/main/docs/assets/EphemeralAccessExtensionDiagram.png)
 
 Users have to log on to ArgoCD using OIDC. When you didn't configure
 this yet, you can read my blog on the Conclusion Xforce Tech Playground about
-this [3].
+this [2].
 
 The groups are configured in the rbac configuration:
 
 `kubectl get configmap -n argocd argocd-rbac-cm -o yaml`
 
-![argocd-rbac-cm](./argocd-rbac-cm.png)
+![argocd-rbac-cm](./images/argocd-rbac-cm.png)
 
 The permissions in this file should be the default permissions when no extra
 permissions are requested or granted. Even though my administrator group will
@@ -52,23 +55,33 @@ can be found in the deployment of the argocd-server.
 `kubectl get deployment -n argocd argocd-server -o yaml | less`
 
 This gives a lot of output. What you're searching for is in the initContainers
-part of the output:
+part of the output. Or, even more specifically, the environment variables part
+of the initcontainers part:
 
-![initContainers](./initContainers-part-of-deployment-argocd-server.png)
+![initContainers](./images/initContainers-part-of-deployment-argocd-server.png)
 
 This means that the Ephemeral Access Extension will only show up when your
 application has the label `environment:production`:
 
-`kubectl get application -n argocd demoapp`
+`kubectl get application -n argocd demoapp -o yaml`
 
-![labels](./demoapp-labels.png)
+![labels](./images/demoapp-labels.png)
+
+You can also see that the application has it permissions managed by a project.
+This is mandattory. The project is also a Kubernetes resource:
+
+![project](./images/project.png)
+
+For this application, the permissions are very broad. That doesn't matter for this
+example: these permissions are permissions for the application itself, not for the
+user that is changing the application.
 
 When you press the `Permission`, the GUI already knows what roles can be
 assumed by the current user. It knows this by looking in the AccessBindings:
 
 `kubectl get accessbindings -n argocd`
 
-![accessbindings](./access-bindings.png)
+![accessbindings](./images/access-bindings.png)
 
 Though we could print them with `-o yaml`, it's more convenient to print them
 in the way they were created. You can find these scripts in the `/opt/xforce`
@@ -76,7 +89,9 @@ directory on the demo server that is deployed via AWS CloudFormation:
 
 `cat /opt/xforce/accessbinding.yaml`
 
-![accessbindings-at-creation](./accessbindings-at-creation.png)
+![accessbindings-at-creation](./images/accessbindings-at-creation.png)
+
+I included the file in this example directory on Github as well.
 
 The AccessBindings are the connections between the OIDC group (in my case:
 `xforce-admins`) with the roles in the Argocd Access Extension (in my case:
@@ -103,12 +118,14 @@ running in the `argocd-ephemeral-access` namespace:
 
 `kubectl get deployments -n argocd-ephemeral-access`
 
-![deployments](./deployments.png)
+![deployments](./images/deployments.png)
 
 The `argocd-server` knows where to find the backend server by looking in the
 configuration in the `argocd-cm` configmap:
 
-![argocd-cm](./argocd-cm.png)
+`kubectl get configmap -n argocd argocd-cm -o yaml`
+
+![argocd-cm](./images/argocd-cm.png)
 
 ## Create Access Request (arrow 4)
 
@@ -118,7 +135,7 @@ as resources:
 
 `kubectl get accessrequests -n argocd -o yaml`
 
-![accessrequests](./accessrequest.png)
+![accessrequests](./images/accessrequest.png)
 
 You see two items in the history: the `initiated` part is created by the backend.
 
@@ -141,7 +158,7 @@ the creation:
 
 `cat /opt/xforce/roletemplate.yaml`
 
-![roletemplates](./roletemplate-at-creation.yaml)
+![roletemplates](./images/roletemplate-at-creation.png)
 
 You can see that the role templates contain variables, like the name of the
 application. This is useful when the project is changed: it is then visible
@@ -158,13 +175,13 @@ When the text of the role is rendered, the controller will add the role to the
 project: in the `settings` menu on the left, choose for `project`, then
 `demoproject`, then `Roles`:
 
-![roles-in-project](./demoproject-roles.png)
+![roles-in-project](./images/demoproject-roles.png)
 
 You can see here that the rendering used the name of the application (demoapp)
 in the name of the role. When we open the role, we can see what permissions are
 granted to whom:
 
-![devops-role](./devops-role.png)
+![devops-role](./images/devops-role.png)
 
 The requestor now has the extra permissions, added by the Ephemeral Access
 Extension. The controller will also revoke the permissions when the duration of
@@ -175,11 +192,8 @@ Ephemeral Access Extension where to find defaults and how to change them.
 
 ## Links
 
-[1] Github repository with working AWS CloudFormation template of OIDC and
-the Ephemeral Access Extension:
-<https://github.com/FrederiqueRetsema/ArgoCD-SSO-based-on-AWS-Cognito-Userpools>  
-[2] Github repository of the Ephemeral Access Extension:
+[1] Github repository of the Ephemeral Access Extension:
 <https://github.com/argoproj-labs/argocd-ephemeral-access>  
-[3] More information about connecting ArgoCD to AWS Cognito via OIDC in the blog
+[2] More information about connecting ArgoCD to AWS Cognito via OIDC in the blog
 on the Conclusion Xforce Tech Playground:
 <https://conclusionxforce.cloud/blog/argocd-sso-based-on-aws-cognito-userpools/>  

@@ -392,7 +392,9 @@ func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecretSecretDoesntExist() {
 	setSecret(namespace, secretName, genericUsername, genericPassword)
 
 	secretName = "does-not-exist"
-	expectedErrorText := fmt.Sprintf("Error getting secret %s, does secret exist in namespace %s?", secretName, namespace)
+	expectedErrorText := fmt.Sprintf(`Error getting secret %s, does secret exist in namespace %s? Error: secrets "does-not-exist" not found`,
+		secretName,
+		namespace)
 
 	loggerObj.On("Debug", fmt.Sprintf("Get credentials from secret [%s]%s...", namespace, secretName))
 	loggerObj.On("Error", expectedErrorText)
@@ -897,7 +899,6 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultForbidden() {
 		StatusCode: 403,
 	}
 	var body = `{"result":[]}`
-	loggerObj.On("Error", expectedErrorText)
 
 	_, errorText := p.checkAPIResult(&resp, []byte(body))
 	s.Equal(expectedErrorText, errorText, "Correct error text")
@@ -914,7 +915,6 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultBadGateway() {
 		StatusCode: 502,
 	}
 	var body = `{"result":[]}`
-	loggerObj.On("Error", expectedErrorText)
 
 	_, errorText := p.checkAPIResult(&resp, []byte(body))
 	s.Equal(expectedErrorText, errorText, "Correct error text")
@@ -931,7 +931,6 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultBadGatewayWith200() {
 		StatusCode: 200,
 	}
 	responseText := "<html><body>Server down!</body></html>"
-	loggerObj.On("Error", expectedErrorText)
 
 	_, errorText := p.checkAPIResult(&resp, []byte(responseText))
 	s.Equal(expectedErrorText, errorText, "Correct error text")
@@ -1243,7 +1242,6 @@ func (s *ServiceNowTestSuite) TestGetCIServerDown() {
 
 	loggerObj.On("Debug", fmt.Sprintf("apiCall: %s", apiCall))
 	loggerObj.On("Debug", responseText)
-	loggerObj.On("Error", expectedErrorText)
 	defer server.Close()
 	serviceNowUrl = server.URL
 
@@ -2264,13 +2262,12 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoChange() {
 	defer server.Close()
 
 	loggerObj.On("Error", mock.Anything)
+	loggerObj.On("Warn", "Access Denied for Test User, role administrator: No changes found")
 	response, err := p.GrantAccess(&ar, &app)
 
 	s.Equal("No changes found", response.Message, "Response message should be correct")
 	s.Equal(plugin.GrantStatusDenied, response.Status, "Response status should be correct")
 	s.Equal(nil, err, "Error should be nil")
-
-	loggerObj.AssertExpectations(t)
 }
 
 func (s *PublicMethodsTestSuite) TestRevokeAccess() {

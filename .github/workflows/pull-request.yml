@@ -51,7 +51,7 @@ jobs:
     - name: Print the Cloud Formation Linter Version & run Linter.
       run: |
         cfn-lint --version
-        cfn-lint -t ./example/aws/cloudformation.yaml
+        cfn-lint -t ./examples/aws/cloudformation.yaml
 
   docker_build_push:
     runs-on: ubuntu-latest
@@ -73,4 +73,4 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: frederiquer/argocd-plugin-servicenow:${{ github.sha }}
+          tags: frederiquer/argocd-ephemeral-access-plugin-servicenow:${{ github.sha }}

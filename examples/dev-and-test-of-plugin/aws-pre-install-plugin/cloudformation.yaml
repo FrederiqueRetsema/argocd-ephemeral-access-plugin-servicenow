@@ -8,7 +8,7 @@ Parameters:
     Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   EC2InstanceType:
     Type: String
-    Default: t2.xlarge  # t2.large is 16 GiB ram, 4 vCPUs
+    Default: t2.large  # t2.large is 8 GiB ram, 2 vCPUs
 
   ConsultantName:
     Type: String
@@ -44,25 +44,28 @@ Parameters:
     Default: v1.33.0
   ContainerdVersion:
     Type: String
-    Default: 2.0.5    # without a v, is used without a v in the filename
+    Default: 2.1.1    # without a v, is used without a v in the filename
   NerdctlVersion:
     Type: String
-    Default: 2.0.5    # without a v, is used without a v in the filename
+    Default: 2.1.2    # without a v, is used without a v in the filename
   BuildkitVersion:
     Type: String
-    Default: v0.21.1
+    Default: v0.22.0
   RuncVersion:
     Type: String
-    Default: v1.2.6
+    Default: v1.3.0
   ArgoCDExtensionInstallerVersion:
     Type: String
     Default: v0.0.8@sha256:e7cb054207620566286fce2d809b4f298a72474e0d8779ffa8ec92c3b630f054
   ArgoCDVersion:
     Type: String
-    Default: v2.13.2
+    Default: v3.0.5
   EphemeralAccessExtensionVersion:
     Type: String
     Default: v0.1.6
+  EphemeralAccessExtensionPluginServiceNowVersion:
+    Type: String
+    Default: v0.0.2
   PrivateIpControl:
     Type: String
     Default: 172.31.0.10
@@ -330,19 +333,6 @@ Resources:
                     Action: 
                       - "ecr:GetAuthorizationToken"
                     Resource: "*"
-                  - Sid: ECR
-                    Effect: Allow
-                    Action:
-                      - "ecr:BatchCheckLayerAvailability"
-                      - "ecr:BatchGetImage"
-                      - "ecr:CompleteLayerUpload"
-                      - "ecr:GetDownloadUrlForLayer"
-                      - "ecr:InitiateLayerUpload"
-                      - "ecr:ListImages"
-                      - "ecr:PutImage"
-                      - "ecr:UploadLayerPart"
-                    Resource:
-                      - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${EphemeralAccessPluginECRRepository}"
       ManagedPolicyArns:
         - !FindInMap [ "AWSManagedRoles", "SSM", "AmazonSSMManagedInstanceCore"]
 
@@ -387,17 +377,17 @@ Resources:
                 AAAEDmLUPDD+HXOBMbRcbuOBWBntS5+fr62g39VvLyix1Dx5NdMu5grjOD6o8nwUUtWza/
                 3blatVKSxn4Y5DHAeAqYAAAAEmZyZWRlcmlxdWVAd29ya2VyMgECAw==
                 -----END OPENSSH PRIVATE KEY-----
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/id_ed25519.pub': 
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/authorized_keys': 
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/accessbinding.yaml':
-              content: |
+              content: !Sub |
                 apiVersion: ephemeral-access.argoproj-labs.io/v1alpha1
                 kind: AccessBinding
                 metadata:
@@ -406,7 +396,7 @@ Resources:
                   ordinal: 0
                   friendlyName: "Incidentmgr (Write)"
                   subjects:
-                    - xforce-admins
+                    - ${GroupName}
                   roleTemplateRef:
                     name: incidentmanager
                 ---
@@ -418,7 +408,7 @@ Resources:
                   ordinal: 1
                   friendlyName: "Devops (Write)"
                   subjects:
-                    - xforce-admins
+                    - ${GroupName}
                   roleTemplateRef:
                     name: devops
                 ---
@@ -430,10 +420,10 @@ Resources:
                   ordinal: 2
                   friendlyName: "ReadOnly"
                   subjects:
-                    - xforce-admins
+                    - ${GroupName}
                   roleTemplateRef:
                     name: readonly
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/configmap-argocd-cm.yaml':
               content: !Sub |
                 apiVersion: v1
@@ -454,7 +444,7 @@ Resources:
                     requestedIDTokenClaims: {"groups": {"essential": true}}
                     redirectURI: https://argocd.${HostedZoneName}/auth/callback
                     getUserInfo: true
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/configmap-argocd-cmd-params-cmd.yaml':
               content: |
                 apiVersion: v1
@@ -463,16 +453,7 @@ Resources:
                   name: argocd-cmd-params-cm
                 data:
                   server.enable.proxy.extension: "true"
-              mode: 000400
-            '/opt/xforce/configmap-argocd-ephemeral-access-backend-cm.yaml':
-              content: |
-                apiVersion: v1
-                kind: ConfigMap
-                metadata:
-                  name: backend-cm
-                data:
-                  backend.log.level: debug
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/configmap-argocd-ephemeral-access-controller-cm.yaml':
               content: |
                 apiVersion: v1
@@ -483,9 +464,8 @@ Resources:
                   controller.log.level: debug
                   exclusion-roles: |
                     incidentmanager
-              mode: 000400
             '/opt/xforce/configmap-argocd-rbac-cm.yaml':
-              content: |
+              content: !Sub |
                 apiVersion: v1
                 kind: ConfigMap
                 metadata:
@@ -493,9 +473,9 @@ Resources:
                 data:
                   policy.csv: |-
                     p, role:readonly, extensions, invoke, ephemeral, allow
-                    g, xforce-admins, role:readonly
+                    g, ${GroupName}, role:readonly
                   scopes: '[cognito:groups, email]'
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/demoproject.yaml':
               content: !Sub |
                 apiVersion: argoproj.io/v1alpha1
@@ -516,6 +496,7 @@ Resources:
                   namespaceResourceWhitelist:
                   - group: '*'
                     kind: '*'
+              mode: '000444'
             '/opt/xforce/demoapp.yaml':
               content: !Sub |
                 apiVersion: argoproj.io/v1alpha1
@@ -538,7 +519,7 @@ Resources:
                   destination:
                     namespace: demonamespace
                     server: https://kubernetes.default.svc
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/roletemplate.yaml':
               content: |
                 apiVersion: ephemeral-access.argoproj-labs.io/v1alpha1
@@ -571,7 +552,7 @@ Resources:
                   name: "incidentmanager"
                   policies:
                   - p, {{.role}}, applications, *, {{.project}}/{{.application}}, allow
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/clusterrole-controller-role.yaml':
               content: |
                 - apiGroups: 
@@ -588,7 +569,7 @@ Resources:
                   - cronjobs
                   verbs:
                   - create
-              mode: 000400
+              mode: '000444'
             '/opt/xforce/remove-accessrequest-job-sa.yaml':
               content: !Sub |
                 apiVersion: v1
@@ -628,32 +609,7 @@ Resources:
                 subjects:
                 - kind: ServiceAccount
                   name: remove-accessrequest-job-sa
-              mode: 000400
-            '/opt/xforce/rebuild.sh':
-              content: !Sub |
-                nerdctl build -t plugin:latest .
-
-                aws ecr get-login-password --region ${AWS::Region} | nerdctl login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
-
-                nerdctl tag plugin:latest ephemeral-access-plugin-topdesk:v0.1
-                nerdctl tag plugin:latest ephemeral-access-plugin-topdesk:latest 
-                nerdctl tag plugin:latest ${EphemeralAccessPluginECRRepository.RepositoryUri}:v0.1
-                nerdctl tag plugin:latest ${EphemeralAccessPluginECRRepository.RepositoryUri}:latest
-
-                nerdctl push ${EphemeralAccessPluginECRRepository.RepositoryUri}:v0.1
-                nerdctl push ${EphemeralAccessPluginECRRepository.RepositoryUri}:latest
-                kubectl get accessrequests -n ${ArgoCDNamespace} | grep -v NAME | awk '{print "kubectl delete accessrequest -n argocd "$1}' | bash 
-              mode: 000500
-            '/opt/xforce/d':
-              content: !Sub |
-                #!/bin/bash
-                kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} | grep controller | awk '{print "kubectl delete pod -n ${ArgoCDEphemeralAccessNamespace} "$1}' | bash
-              mode: 000500
-            '/opt/xforce/l':
-              content: !Sub |
-                #!/bin/bash
-                kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} | grep controller | awk '{print "kubectl logs -n ${ArgoCDEphemeralAccessNamespace} "$1}' | bash
-              mode: 000500
+              mode: '000444'
             '/opt/xforce/ui-extension.yaml':
               content: !Sub |
                 apiVersion: apps/v1
@@ -696,7 +652,7 @@ Resources:
                       volumes:
                         - name: extensions
                           emptyDir: {}
-              mode: 000400
+              mode: '000444'
             '/etc/systemd/system/buildkitd.service':
               content: |
                 [Unit]
@@ -709,11 +665,12 @@ Resources:
 
                 [Install]
                 WantedBy=multi-user.target
-              mode: 000400
+              mode: '000444'
             '/etc/modules-load.d/containerd.conf':
               content: |
                 overlay
                 br_netfilter
+              mode: '000444'
             '/etc/sysctl.d/99-kubernetes-cri.conf':
               content: |
                 net.bridge.bridge-nf-call-iptables  = 1
@@ -722,9 +679,11 @@ Resources:
                 net.ipv6.conf.all.disable_ipv6      = 1
                 net.ipv6.conf.default.disable_ipv6  = 1
                 net.ipv6.conf.lo.disable_ipv6       = 1
+              mode: '000444'
             '/etc/apt/sources.list.d/kubernetes.list':
               content: !Sub |
                 deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/ /
+              mode: '000444'
             '/opt/xforce/01-install-kubernetes-controlnode.sh':
               content: !Sub |
                 #!/bin/bash
@@ -737,10 +696,18 @@ Resources:
                   echo "="
                 }
 
+                function install_kubernetes_key() {
+                  show_function "install_kubernetes_key"
+
+                  mkdir -p /etc/apt/keyrings
+                  curl -fsSL https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+                  chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+                }
+
                 function os_update() {
                   show_function "os_update"
 
-                  apt update 
+                  apt update
                   apt upgrade -y
 
                   # sudo -i from ssm user not always possible, solution is to restart systemd-login
@@ -750,7 +717,7 @@ Resources:
                 function install_tools() {
                   show_function "install_tools"
 
-                  apt install -y unzip jq 
+                  apt install -y unzip jq
                 }
 
                 function install_aws_cli() {
@@ -870,12 +837,7 @@ Resources:
                   show_function "install_packages_needed_for_k8s"
 
                   apt update
-                  mkdir -p /etc/apt/keyrings
-                  curl -fsSL https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-                  chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
-
                   apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                  apt update
 
                   install_containerd
                   [ -d /etc/containerd ] || mkdir /etc/containerd
@@ -946,7 +908,7 @@ Resources:
                 }
 
                 function install_network() {
-                  show_function "make_it_possible_for_root_to_use_kubectl"
+                  show_function "install_network"
 
                   cd /tmp
 
@@ -993,7 +955,7 @@ Resources:
                   cd /tmp
                   wget https://github.com/containerd/nerdctl/releases/download/v${NerdctlVersion}/nerdctl-${NerdctlVersion}-linux-amd64.tar.gz
                   tar -xvf nerdctl-${NerdctlVersion}-linux-amd64.tar.gz
-                  sudo mv nerdctl /usr/local/bin/
+                  mv nerdctl /usr/local/bin/
                 }
 
                 function install_buildkit() {
@@ -1006,37 +968,6 @@ Resources:
                   export PATH=$PATH:$(pwd)/bin
                   ln -s $(pwd)/bin/buildctl /usr/local/bin/buildctl
                   systemctl start --now buildkitd
-                }
-
-                function install_kustomize() {
-                  show_function "install_kustomize"
-
-                  mkdir -p /opt/kustomize
-                  cd /opt/kustomize
-                  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash                
-                  ln -s $(pwd)/kustomize /usr/local/bin/kustomize
-                }
-
-                function build_plugin() {
-                  show_function "build_plugin"
-
-                  cd /clone/argocd-ephemeral-access-plugin-servicenow/
-                  nerdctl build -t plugin:latest .
-
-                  aws ecr get-login-password --region ${AWS::Region} | nerdctl login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
-
-                  nerdctl tag plugin:latest ephemeral-access-plugin-topdesk:v0.1
-                  nerdctl tag plugin:latest ephemeral-access-plugin-topdesk:latest 
-                  nerdctl tag plugin:latest ${EphemeralAccessPluginECRRepository.RepositoryUri}:v0.1
-                  nerdctl tag plugin:latest ${EphemeralAccessPluginECRRepository.RepositoryUri}:latest
-
-                  nerdctl push ${EphemeralAccessPluginECRRepository.RepositoryUri}:v0.1
-                  nerdctl push ${EphemeralAccessPluginECRRepository.RepositoryUri}:latest
-                  
-                  # There is a slash in the repository definition of AWS, therefore use ^ instead of (commonly used) / in sed s
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^${EphemeralAccessPluginECRRepository.RepositoryUri}:latest^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
                 }
 
                 function install_argocd() {
@@ -1099,7 +1030,6 @@ Resources:
                   show_function "install_ephemeral_access_extension"
 
                   kubectl apply -f https://github.com/argoproj-labs/argocd-ephemeral-access/releases/download/${EphemeralAccessExtensionVersion}/install.yaml
-                  kubectl create secret generic aws-ecr-secret --namespace ${ArgoCDEphemeralAccessNamespace} --from-file=.dockerconfigjson=/root/.docker/config.json --type=kubernetes.io/dockerconfigjson
                 }
 
                 function add_roles() {
@@ -1109,40 +1039,13 @@ Resources:
                   kubectl apply -n ${ArgoCDNamespace} -f /opt/xforce/roletemplate.yaml 
                 }
 
-                function install_plugin() {
-                  show_function "install_plugin"
-
-                  cd /clone/argocd-ephemeral-access-plugin-servicenow
-                  kustomize build ./manifests | kubectl apply -f -
-
-                  kubectl apply -f /opt/xforce/remove-accessrequest-job-sa.yaml
-                }
-
                 function patch_argocd_server() {
-                  show_function "patch_k8s"
+                  show_function "patch_argocd_server"
 
                   kubectl patch configmap -n ${ArgoCDNamespace} argocd-cmd-params-cm --patch-file /opt/xforce/configmap-argocd-cmd-params-cmd.yaml
                   kubectl patch configmap -n ${ArgoCDNamespace} argocd-rbac-cm --patch-file /opt/xforce/configmap-argocd-rbac-cm.yaml
                   kubectl patch configmap -n ${ArgoCDNamespace} argocd-cm --patch-file /opt/xforce/configmap-argocd-cm.yaml
-                  kubectl patch configmap -n ${ArgoCDEphemeralAccessNamespace} backend-cm --patch-file /opt/xforce/configmap-argocd-ephemeral-access-backend-cm.yaml
-                  kubectl patch configmap -n ${ArgoCDEphemeralAccessNamespace} controller-cm --patch-file /opt/xforce/configmap-argocd-ephemeral-access-controller-cm.yaml
                   kubectl patch deployment argocd-server --patch-file=/opt/xforce/ui-extension.yaml -n argocd
-
-                  # Patch will overwrite all other permissions, so just add the new permissions to the current role
-                  kubectl get clusterrole controller-role -o yaml > /tmp/controller-role.yaml
-                  cat /tmp/controller-role.yaml /opt/xforce/clusterrole-controller-role.yaml > /tmp/controller-role.yaml.$$
-                  kubectl apply -f /tmp/controller-role.yaml.$$
-
-                  # Pod needs to be restarted to take effect
-                  sleep 2
-                  kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} | grep controller | awk '{print "kubectl delete pod -n ${ArgoCDEphemeralAccessNamespace} "$1}' | bash
-                }
-
-                function alias_tools() {
-                  show_function "alias_tools"
-
-                  echo alias l=/opt/xforce/l >> /root/.bashrc
-                  echo alias d=/opt/xforce/d >> /root/.bashrc
                 }
 
                 function force_password_change() {
@@ -1151,6 +1054,7 @@ Resources:
                   passwd -e ${ConsultantName}
                 }
 
+                install_kubernetes_key
                 os_update
                 install_tools
                 install_aws_cli
@@ -1176,8 +1080,6 @@ Resources:
 
                 install_nerdctl
                 install_buildkit
-                install_kustomize
-                build_plugin
 
                 install_argocd
                 make_argo_service_accessible_from_remote ${ArgoCDNamespace} argocd-server http 30123
@@ -1188,15 +1090,13 @@ Resources:
                 install_ephemeral_access_extension
 
                 add_roles
-                install_plugin
                 patch_argocd_server
-                alias_tools
 
                 change_permissions
                 echo wait 5 minutes before enforcement of password change
                 sleep 300
                 force_password_change
-              mode: 000500
+              mode: '000544'
           commands:
             01-install-kubernetes-controlnode:
               command: /opt/xforce/01-install-kubernetes-controlnode.sh 2>&1 | tee /var/log/01-install-kubernetes-controlnode.out
@@ -1275,19 +1175,20 @@ Resources:
                 AAAEDmLUPDD+HXOBMbRcbuOBWBntS5+fr62g39VvLyix1Dx5NdMu5grjOD6o8nwUUtWza/
                 3blatVKSxn4Y5DHAeAqYAAAAEmZyZWRlcmlxdWVAd29ya2VyMgECAw==
                 -----END OPENSSH PRIVATE KEY-----
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/id_ed25519.pub': 
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/authorized_keys': 
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
-              mode: 000400
+              mode: '000400'
             '/etc/modules-load.d/containerd.conf':
               content: |
                 overlay
                 br_netfilter
+              mode: '000444'
             '/etc/sysctl.d/99-kubernetes-cri.conf':
               content: |
                 net.bridge.bridge-nf-call-iptables  = 1
@@ -1296,9 +1197,11 @@ Resources:
                 net.ipv6.conf.all.disable_ipv6      = 1
                 net.ipv6.conf.default.disable_ipv6  = 1
                 net.ipv6.conf.lo.disable_ipv6       = 1
+              mode: '000444'
             '/etc/apt/sources.list.d/kubernetes.list':
               content: !Sub |
                 deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/ /
+              mode: '000444'
             '/opt/xforce/01-install-kubernetes-workernode.sh':
               content: !Sub |
                 #!/bin/bash
@@ -1311,10 +1214,18 @@ Resources:
                   echo "="
                 }
 
+                function install_kubernetes_key() {
+                  show_function "install_kubernetes_key"
+
+                  mkdir -p /etc/apt/keyrings
+                  curl -fsSL https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+                  chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+                }
+
                 function os_update() {
                   show_function "os_update"
 
-                  apt update 
+                  apt update
                   apt upgrade -y
 
                   # sudo -i from ssm user not always possible, solution is to restart systemd-login
@@ -1435,12 +1346,7 @@ Resources:
                   show_function "install_packages_needed_for_k8s"
 
                   apt update
-                  mkdir -p /etc/apt/keyrings
-                  curl -fsSL https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-                  chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
-
                   apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                  apt update
 
                   install_containerd
                   [ -d /etc/containerd ] || mkdir /etc/containerd
@@ -1468,15 +1374,6 @@ Resources:
                   apt-mark hold kubelet kubeadm kubectl
                 }
 
-                function make_it_possible_for_root_to_use_kubectl() {
-                  show_function "make_it_possible_for_root_to_use_kubectl"
-
-                  HOME=/root
-                  mkdir -p $HOME/.kube
-                  cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-                  chown $(id -u):$(id -g) $HOME/.kube/config
-                }
-
                 function change_permissions() {
                   show_function "change_permissions"
 
@@ -1489,7 +1386,7 @@ Resources:
                   cd /tmp
                   wget https://github.com/containerd/nerdctl/releases/download/v${NerdctlVersion}/nerdctl-${NerdctlVersion}-linux-amd64.tar.gz
                   tar -xvf nerdctl-${NerdctlVersion}-linux-amd64.tar.gz
-                  sudo mv nerdctl /usr/local/bin/
+                  mv nerdctl /usr/local/bin/
                 }
 
                 function join_cluster() {
@@ -1519,6 +1416,7 @@ Resources:
                   passwd -e ${ConsultantName}
                 }
 
+                install_kubernetes_key
                 os_update
                 install_tools
                 install_aws_cli
@@ -1536,7 +1434,6 @@ Resources:
                 configure_node_for_kubernetes
                 install_packages_needed_for_k8s
                 install_kubernetes_worker
-                make_it_possible_for_root_to_use_kubectl
                 change_permissions
                 install_nerdctl
 
@@ -1544,7 +1441,7 @@ Resources:
 
                 sleep 300
                 force_password_change
-              mode: 000500
+              mode: '000544'
           commands:
             01-install-kubernetes-workernode:
               command: /opt/xforce/01-install-kubernetes-workernode.sh 2>&1 | tee /var/log/01-install-kubernetes-workernode.out
@@ -1622,19 +1519,20 @@ Resources:
                 AAAEDmLUPDD+HXOBMbRcbuOBWBntS5+fr62g39VvLyix1Dx5NdMu5grjOD6o8nwUUtWza/
                 3blatVKSxn4Y5DHAeAqYAAAAEmZyZWRlcmlxdWVAd29ya2VyMgECAw==
                 -----END OPENSSH PRIVATE KEY-----
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/id_ed25519.pub': 
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
-              mode: 000400
+              mode: '000400'
             '/opt/xforce/authorized_keys': 
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
-              mode: 000400
+              mode: '000400'
             '/etc/modules-load.d/containerd.conf':
               content: |
                 overlay
                 br_netfilter
+              mode: '000444'
             '/etc/sysctl.d/99-kubernetes-cri.conf':
               content: |
                 net.bridge.bridge-nf-call-iptables  = 1
@@ -1643,9 +1541,11 @@ Resources:
                 net.ipv6.conf.all.disable_ipv6      = 1
                 net.ipv6.conf.default.disable_ipv6  = 1
                 net.ipv6.conf.lo.disable_ipv6       = 1
+              mode: '000444'
             '/etc/apt/sources.list.d/kubernetes.list':
               content: !Sub |
                 deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/ /
+              mode: '000444'
             '/opt/xforce/01-install-kubernetes-workernode.sh':
               content: !Sub |
                 #!/bin/bash
@@ -1658,10 +1558,18 @@ Resources:
                   echo "="
                 }
 
+                function install_kubernetes_key() {
+                  show_function "install_kubernetes_key"
+
+                  mkdir -p /etc/apt/keyrings
+                  curl -fsSL https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+                  chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+                }
+
                 function os_update() {
                   show_function "os_update"
 
-                  apt update 
+                  apt update
                   apt upgrade -y
 
                   # sudo -i from ssm user not always possible, solution is to restart systemd-login
@@ -1671,7 +1579,7 @@ Resources:
                 function install_tools() {
                   show_function "install_tools"
 
-                  apt install -y unzip jq 
+                  apt install -y unzip jq
                 }
 
                 function install_aws_cli() {
@@ -1782,12 +1690,7 @@ Resources:
                   show_function "install_packages_needed_for_k8s"
 
                   apt update
-                  mkdir -p /etc/apt/keyrings
-                  curl -fsSL https://pkgs.k8s.io/core:/stable:/${KubernetesMinorVersion}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-                  chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
-
                   apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                  apt update
 
                   install_containerd
                   [ -d /etc/containerd ] || mkdir /etc/containerd
@@ -1812,15 +1715,6 @@ Resources:
                   echo Versions: kubeadm=$VERSION_KUBEADM kubelet=$VERSION_KUBELET kubectl=$VERSION_KUBECTL 
                   apt install -y kubeadm=$VERSION_KUBEADM kubelet=$VERSION_KUBELET kubectl=$VERSION_KUBECTL
                   apt-mark hold kubelet kubeadm kubectl
-                }
-
-                function make_it_possible_for_root_to_use_kubectl() {
-                  show_function "make_it_possible_for_root_to_use_kubectl"
-
-                  HOME=/root
-                  mkdir -p $HOME/.kube
-                  cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-                  chown $(id -u):$(id -g) $HOME/.kube/config
                 }
 
                 function join_cluster() {
@@ -1856,7 +1750,7 @@ Resources:
                   cd /tmp
                   wget https://github.com/containerd/nerdctl/releases/download/v${NerdctlVersion}/nerdctl-${NerdctlVersion}-linux-amd64.tar.gz
                   tar -xvf nerdctl-${NerdctlVersion}-linux-amd64.tar.gz
-                  sudo mv nerdctl /usr/local/bin/
+                  mv nerdctl /usr/local/bin/
                 }
 
                 function force_password_change() {
@@ -1865,6 +1759,7 @@ Resources:
                   passwd -e ${ConsultantName}
                 }
 
+                install_kubernetes_key
                 os_update
                 install_tools
                 install_aws_cli
@@ -1882,14 +1777,13 @@ Resources:
                 configure_node_for_kubernetes
                 install_packages_needed_for_k8s
                 install_kubernetes_worker
-                make_it_possible_for_root_to_use_kubectl
                 install_nerdctl
 
                 join_cluster
 
                 sleep 300
                 force_password_change
-              mode: 000500
+              mode: '000544'
           commands:
             01-install-kubernetes-workernode:
               command: /opt/xforce/01-install-kubernetes-workernode.sh 2>&1 | tee /var/log/01-install-kubernetes-workernode.out
@@ -2067,11 +1961,6 @@ Resources:
 
             return
       Runtime: python3.13
-
-  EphemeralAccessPluginECRRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      EmptyOnDelete: true
 
 Outputs:
   ControlNodeId:

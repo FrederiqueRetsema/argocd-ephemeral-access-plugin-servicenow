@@ -1,5 +1,5 @@
 #!/bin/bash
-PROFILE="xforce-sandbox1"
+PROFILE="xforce-sandbox2"
 CONSULTANT_NAME="frederique"
 
 NAMES=$(aws cloudformation describe-stacks --profile "${PROFILE}" | jq '.Stacks[].StackName' | awk -F'"' '{print $2}' | grep "${CONSULTANT_NAME}-k8s")
