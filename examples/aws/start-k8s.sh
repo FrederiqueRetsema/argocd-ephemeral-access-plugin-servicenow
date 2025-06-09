@@ -28,7 +28,21 @@ echo "when you get errors in the command below"
 echo ""
 echo "Deploy started at $(date +%H:%M:%S), it will take about 15 minutes to finish"
 
-aws cloudformation deploy --stack-name "${STACK_NAME}" --template-file "./cloudformation.yaml" --parameter-overrides ConsultantName=${CONSULTANT_NAME} ConsultantEmail=${CONSULTANT_EMAIL} GroupName=${GROUP_NAME} DefaultPassword=${DEFAULT_PASSWORD} HostedZoneName=${HOSTED_ZONE_NAME} CertificateId=${CERTIFICATE_ID} ServiceNowUrl=${SERVICENOW_URL} ServiceNowSecretName=${SERVICENOW_SECRET_NAME} LocalTimezone=${LOCAL_TIMEZONE} ArgoCDNamespace=${ARGOCD_NAMESPACE} --capabilities "CAPABILITY_IAM" --s3-bucket ${BUCKET_NAME} --profile "${PROFILE}"
+aws cloudformation deploy \
+        --stack-name "${STACK_NAME}" \
+        --template-file "./cloudformation.yaml" \
+        --parameter-overrides \
+             ConsultantName="${CONSULTANT_NAME}" \
+             ConsultantEmail="${CONSULTANT_EMAIL}" \
+             GroupName="${GROUP_NAME}" \
+             DefaultPassword="${DEFAULT_PASSWORD}" \
+             HostedZoneName="${HOSTED_ZONE_NAME}" \
+             CertificateId="${CERTIFICATE_ID}" \
+             ServiceNowUrl="${SERVICENOW_URL}" \
+             ServiceNowSecretName="${SERVICENOW_SECRET_NAME}" \
+             LocalTimezone="${LOCAL_TIMEZONE}" \
+             ArgoCDNamespace="${ARGOCD_NAMESPACE}" \
+        --capabilities "CAPABILITY_IAM" --s3-bucket "${BUCKET_NAME}" --profile "${PROFILE}"
 
 echo "Deploy finished at $(date +%H:%M:%S)"
 
