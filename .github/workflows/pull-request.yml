@@ -52,6 +52,11 @@ jobs:
       run: |
         cfn-lint --version
         cfn-lint -t ./examples/aws/cloudformation.yaml
+        cfn-lint -t ./examples/aws/dev-and-test-of-plugin/aws-dev/cloudformation.yaml
+        cfn-lint -t ./examples/aws/dev-and-test-of-plugin/aws-pre-install-plugin/cloudformation.yaml
+
+    - name: ShellCheck
+      uses: ludeeus/action-shellcheck@master
 
   docker_build_push:
     runs-on: ubuntu-latest

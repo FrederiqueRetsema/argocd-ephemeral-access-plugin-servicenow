@@ -33,7 +33,7 @@ aws cloudformation deploy --stack-name "${STACK_NAME}" --template-file "./cloudf
 echo "Deploy finished at $(date +%H:%M:%S)"
 
 IDS=$(aws cloudformation describe-stacks --stack-name ${STACK_NAME} --profile "${PROFILE}")
-ID_CONTROL=$(echo $IDS | jq '.Stacks[0].Outputs[] | select(.OutputKey=="ControlNodeId") | .OutputValue' | awk -F'"' '{print $2}')
+ID_CONTROL=$(echo "$IDS" | jq '.Stacks[0].Outputs[] | select(.OutputKey=="ControlNodeId") | .OutputValue' | awk -F'"' '{print $2}')
 
 echo "---"
 echo "Website argo CD: https://argocd.${HOSTED_ZONE_NAME}"
