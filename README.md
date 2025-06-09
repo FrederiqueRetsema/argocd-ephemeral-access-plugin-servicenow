@@ -61,7 +61,9 @@ to the logs.
 
 ## Demo
 
-https://raw.githubusercontent.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/refs/heads/main/ephemeral-access-extension-plugin-for-service.now.mp4
+<video width="3200" controls>
+  <source src="./ephemeral-access-extension-plugin-for-servicenow.mp4" type="video/mp4">
+</video>
 
 ## Installation
 
