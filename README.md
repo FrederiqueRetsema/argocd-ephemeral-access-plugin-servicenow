@@ -5,9 +5,16 @@
 
 ## Overview
 
+The Ephemeral Access Extension
+(<https://github.com/argoproj-labs/argocd-ephemeral-access>) is an add-on to
+ArgoCD, which helps to implement least-privileged access control. Users of
+ArgoCD can use read-only permissions by default, and then request more
+permissions if they need to. The way permissions are processed is determined
+by the plugin that is used.
+
 This plugin provides the connection between the Ephemeral Access Extension
-(<https://github.com/argoproj-labs/argocd-ephemeral-access>) and ServiceNow.
-The plugin is developed using version v0.1.6 of the extension.
+and ServiceNow. The plugin is developed using version v0.1.6 of the extension
+and the Yokohama version of ServiceNow.
 
 When a user does a request for more permissions, the plugin will connect to
 ServiceNow. It checks the validity of the CI that is connected to the
@@ -38,7 +45,7 @@ will not be found by the plugin.
 
 ### Information in ServiceNow
 
-When the access is granted a note is created as part of the change in
+When the access is granted, a note is created as part of the change in
 ServiceNow. In this way, users of ServiceNow can see who got access to deal
 with the change.
 
@@ -51,6 +58,12 @@ exclusion role.
 
 When access is granted based on an exclusion role, a warning will be sent
 to the logs.
+
+## Demo
+
+<video width="3200" controls>
+  <source src="./ephemeral-access-extension-plugin-for-servicenow.mp4" type="video/mp4">
+</video>
 
 ## Installation
 
