@@ -22,16 +22,9 @@ Parameters:
     Type: String
   CertificateId:
     Type: String
-  ServiceNowSecretName:
-    Type: String
-  ServiceNowUrl:
-    Type: String
   ArgoCDNamespace:
     Type: String
     Default: argocd
-  ArgoCDEphemeralAccessNamespace:
-    Type: String
-    Default: argocd-ephemeral-access
   DemoSourceRepo:
     Type: String
     Default: https://github.com/FrederiqueRetsema/kubernetes-test-repo.git
@@ -63,9 +56,6 @@ Parameters:
   EphemeralAccessExtensionVersion:
     Type: String
     Default: v0.1.6
-  EphemeralAccessExtensionPluginServiceNowVersion:
-    Type: String
-    Default: v0.0.2
   PrivateIpControl:
     Type: String
     Default: 172.31.0.10
