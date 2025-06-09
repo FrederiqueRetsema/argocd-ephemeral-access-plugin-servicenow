@@ -61,9 +61,7 @@ to the logs.
 
 ## Demo
 
-<video width="3200" controls>
-  <source src="https://frpublic2.s3.eu-west-1.amazonaws.com/persoonlijk/ephemeral-access-extension-plugin-for-servicenow.mp4" type="video/mp4">
-</video>
+<video width="3200" controls="" height="600" muted="" loop="" autoplay="" src="https://frpublic2.s3.eu-west-1.amazonaws.com/persoonlijk/ephemeral-access-extension-plugin-for-servicenow.mp4" type="video/mp4"></video>
 
 ## Installation
 
