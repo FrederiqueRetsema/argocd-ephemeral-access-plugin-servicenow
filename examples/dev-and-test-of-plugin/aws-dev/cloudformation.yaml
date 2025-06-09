@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Create demo environment for AWS Cognito in combination with ArgoCD
+Description: Dev environment of ArgoCD Ephemeral Access Plugin for ServiceNow
 
 Parameters:
 

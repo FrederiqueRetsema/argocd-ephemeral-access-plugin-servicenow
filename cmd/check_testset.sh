@@ -1,14 +1,16 @@
 #!/bin/bash
+shopt -s lastpipe
 
 PROGRAM_FILE="main.go"
 TEST_FILE="main_test.go"
 ERROR_FOUND=0
-for function in $(grep "func" ${PROGRAM_FILE} | grep -v main\( | awk '{print $4}'| awk -F'(' '{print $1}')
+
+grep "func" ${PROGRAM_FILE} | grep -v main\( | awk '{print $4}'| awk -F'(' '{print $1}' | while IFS= read -r FUNCTION_NAME
 do
-	grep -i test$function ${TEST_FILE} > /dev/null
+	grep -i "test${FUNCTION_NAME}" "${TEST_FILE}" > /dev/null
 	if test $? == 1
 	then
-		echo "Function $function doesn't have tests"
+		echo "Function ${FUNCTION_NAME} doesn't have tests"
 		ERROR_FOUND=1
 	fi
 done

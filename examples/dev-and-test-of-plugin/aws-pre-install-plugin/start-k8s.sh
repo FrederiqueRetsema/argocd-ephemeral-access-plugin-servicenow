@@ -6,8 +6,6 @@ GROUP_NAME="xforce-admins"
 HOSTED_ZONE_NAME="sandbox2.prutsforce.nl"                  # Without a dot, dot will be added where necessary
 CERTIFICATE_ID="867a7fae-455f-4e3c-8efd-7bf2d37fe990"      # *.sandbox2.prutsforce.nl
 DEFAULT_PASSWORD="ConclusionXforce2025!"
-SERVICENOW_SECRET_NAME="servicenow-secret"
-SERVICENOW_URL="https://dev230194.service-now.com"
 LOCAL_TIMEZONE="Europe/Amsterdam"
 ARGOCD_NAMESPACE="argocd"
 
@@ -28,12 +26,26 @@ echo "when you get errors in the command below"
 echo ""
 echo "Deploy started at $(date +%H:%M:%S), it will take about 15 minutes to finish"
 
-aws cloudformation deploy --stack-name "${STACK_NAME}" --template-file "./cloudformation.yaml" --parameter-overrides ConsultantName=${CONSULTANT_NAME} ConsultantEmail=${CONSULTANT_EMAIL} GroupName=${GROUP_NAME} DefaultPassword=${DEFAULT_PASSWORD} HostedZoneName=${HOSTED_ZONE_NAME} CertificateId=${CERTIFICATE_ID} ServiceNowUrl=${SERVICENOW_URL} ServiceNowSecretName=${SERVICENOW_SECRET_NAME} LocalTimezone=${LOCAL_TIMEZONE} ArgoCDNamespace=${ARGOCD_NAMESPACE} --capabilities "CAPABILITY_IAM" --s3-bucket ${BUCKET_NAME} --profile "${PROFILE}"
+aws cloudformation deploy \
+    --stack-name "${STACK_NAME}" \
+    --template-file "./cloudformation.yaml" \
+    --parameter-overrides \
+        ConsultantName="${CONSULTANT_NAME}" \
+        ConsultantEmail="${CONSULTANT_EMAIL}" \
+        GroupName="${GROUP_NAME}" \
+        DefaultPassword="${DEFAULT_PASSWORD}" \
+        HostedZoneName="${HOSTED_ZONE_NAME}" \
+        CertificateId="${CERTIFICATE_ID}" \
+        LocalTimezone="${LOCAL_TIMEZONE}" \
+        ArgoCDNamespace="${ARGOCD_NAMESPACE}" \
+    --capabilities "CAPABILITY_IAM" \
+    --s3-bucket "${BUCKET_NAME}" \
+    --profile "${PROFILE}"
 
 echo "Deploy finished at $(date +%H:%M:%S)"
 
 IDS=$(aws cloudformation describe-stacks --stack-name ${STACK_NAME} --profile "${PROFILE}")
-ID_CONTROL=$(echo $IDS | jq '.Stacks[0].Outputs[] | select(.OutputKey=="ControlNodeId") | .OutputValue' | awk -F'"' '{print $2}')
+ID_CONTROL=$(echo "$IDS" | jq '.Stacks[0].Outputs[] | select(.OutputKey=="ControlNodeId") | .OutputValue' | awk -F'"' '{print $2}')
 
 echo "---"
 echo "Website argo CD: https://argocd.${HOSTED_ZONE_NAME}"

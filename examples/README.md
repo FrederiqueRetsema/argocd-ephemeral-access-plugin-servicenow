@@ -9,6 +9,14 @@ In the beginning it might be hard to understand which manifests should be
 created to get your implementation working. For this goal, I created two
 examples:
 
+### Service Now scripts
+
+You can add a CI and a change manually in the Service Now console, you can also
+use these Service Now scripts. This will work faster and is useful when your
+development environment of ServiceNow has been erased and you have to start from
+zero to add your CI and change(s). It is also handy to add a new change fast,
+without having to walk through all the ServiceNow screens.
+
 ### AWS example
 
 This example will deploy a three node Kubernetes cluster, with ArgoCD and the
