@@ -4,7 +4,7 @@ URL=$1
 USERNAME=$2
 PASSWORD=$3
 
-CHANGE_NUMBER="CHG0080008"
+CHANGE_NUMBER="CHG0080004"
 CMDB_CI="app-demoapp"
 SHORT_DESCRIPTION="Test Ephemeral Access Plugin for ServiceNow"
 
@@ -66,13 +66,7 @@ function add_change() {
         --data "{\"number\":\"${CHANGE_NUMBER}\",\"cmdb_ci\":\"${CMDB_CI}\",\"short_description\":\"${SHORT_DESCRIPTION}\", \"start_date\":\"${ONE_HOUR_AGO_UTC}\",\"end_date\":\"${MORE_THAN_ONE_HOUR_FROM_NOW_UTC}\",\"state\":\"Assess\",\"assignment_group\":\"${SYS_ID_ASSIGNMENT_GROUP}\"}")
 
     SYS_ID_CHANGE=$(echo "${OUTPUT}" | jq '.result.sys_id.value' | awk -F'"' '{print $2}')
-    if test "${SYS_ID_CHANGE}" != ""
-    then
-        echo "sys_id of change ${CHANGE_NUMBER} is: ${SYS_ID_CHANGE}"
-    else
-        echo "Getting approver failed, output of command = ${OUTPUT}"
-        exit 1
-    fi
+    echo "${SYS_ID_CHANGE}"
 }
 
 function approve_change() {
@@ -143,6 +137,14 @@ else
 fi
 
 SYS_ID_CHANGE=$(add_change "${SYS_ID_ASSIGNMENT_GROUP}")
+if test "${SYS_ID_CHANGE}" != ""
+then
+    echo "Change added, sys_id = ${SYS_ID_CHANGE}"
+else
+    echo "Adding change failed"
+    exit 1
+fi
+
 approve_change "${SYS_ID_CHANGE}" "Application Development"
 approve_change "${SYS_ID_CHANGE}" "CAB"
 set_change_to_implement "${SYS_ID_CHANGE}"
