@@ -506,7 +506,7 @@ Resources:
                   namespace: ${ArgoCDNamespace}
                   labels:
                     environment: production
-                    ci_name: app-demoapp
+                    ciName: app-demoapp
                 spec:
                   project: demoproject
                   syncPolicy:
@@ -553,7 +553,7 @@ Resources:
                   policies:
                   - p, {{.role}}, applications, *, {{.project}}/{{.application}}, allow
               mode: '000444'
-            '/opt/xforce/clusterrole-controller-role.yaml':
+            '/opt/xforce/clusterrole-controller-role-patch.yaml':
               content: |
                 - apiGroups: 
                   - ""
@@ -987,7 +987,7 @@ Resources:
                   # There is a slash in the repository definition of AWS, therefore use ^ instead of (commonly used) / in sed s
                   sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^frederiquer/argocd-ephemeral-access-plugin-servicenow:${EphemeralAccessExtensionPluginServiceNowVersion}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
                   sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
+                  sed -i 's^servicenow-secret^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
                 }
 
                 function install_argocd() {
@@ -1050,7 +1050,6 @@ Resources:
                   show_function "install_ephemeral_access_extension"
 
                   kubectl apply -f https://github.com/argoproj-labs/argocd-ephemeral-access/releases/download/${EphemeralAccessExtensionVersion}/install.yaml
-                  kubectl create secret generic aws-ecr-secret --namespace ${ArgoCDEphemeralAccessNamespace} --from-file=.dockerconfigjson=/root/.docker/config.json --type=kubernetes.io/dockerconfigjson
                 }
 
                 function add_roles() {
@@ -1080,7 +1079,7 @@ Resources:
 
                   # Patch will overwrite all other permissions, so just add the new permissions to the current role
                   kubectl get clusterrole controller-role -o yaml > /tmp/controller-role.yaml
-                  cat /tmp/controller-role.yaml /opt/xforce/clusterrole-controller-role.yaml > /tmp/controller-role.yaml.$$
+                  cat /tmp/controller-role.yaml /opt/xforce/clusterrole-controller-role-patch.yaml > /tmp/controller-role.yaml.$$
                   kubectl apply -f /tmp/controller-role.yaml.$$
 
                   # Pod needs to be restarted to take effect

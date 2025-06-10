@@ -63,7 +63,84 @@ to the logs.
 
 [![demo](https://frpublic2.s3.eu-west-1.amazonaws.com/persoonlijk/ephemeral-access-extension-plugin-for-servicenow.png)](https://youtu.be/k6JqPJJJqb8)
 
+## Prereqs
+
+The ArgoCD Ephemeral Access Extension requires ArgoCD version v2.13.0+ to be
+installed. This plugin has been tested with ArgoCD Ephemeral Access Extension
+version v0.1.6, it is wise to install and test the Ephemeral Access Extension
+without a plugin before installing the plugin.
+
 ## Installation
+
+The installation requires you to change some settings in resources that are
+deployed in the Ephemeral Access Extension. To do this properly, I created an
+install script (install.sh). You can download it from the release page on
+Github. Before you run this script, you have to change two settings:
+
+![settings in install.sh](./images/install_sh_parameters.png)
+
+Replace the ServiceNow URL with the URL of your ServiceNow environment. Also
+replace the timezone for the plugin (this should match the timezone of the
+user that the plugin uses for reading the CI and for reading and writing the
+change).
+
+After the installation, you need to configure the userid and the password for
+ServiceNow. The plugin uses a secret to get this information:
+
+```Kubectl
+kubectl create secret -n argocd-ephemeral-access generic servicenow-secret \ 
+  --from-literal=username=plugin_user --from-literal=password=plugin_password
+```
+
+You now have to label the application that you want to check in ServiceNow with
+the CI name: by default the name of the label is ciName, but you can change
+this if you want.
+
+An example application:
+
+```Manifest
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+    name: demoapp
+    namespace: argocd
+    labels:
+        environment: production
+        ciName: app-demoapp
+```
+
+You will always have one label that is used by the Ephemeral Access Extension
+to indicate that this application should be under control of the extension and
+another label that is used by the ServiceNow plugin to know which CI should be
+checked and which changes should be received.
+
+You can change settings if you like, you can look at all the settings on the
+![settings](./SETTINGS.md) page.
+
+## Determining the duration of the permission
+
+Currently, the Ephemeral Access Extension determines how long the permission is
+granted. This is not what one would expect when the change ends earlier. This
+will be solved in a comming release of the Ephemeral Access Extension (*). Until
+then, this plugin uses a work around.
+
+When the duration of the Ephemeral Access Extension is shorter than the duration
+of the change, the duration of the Ephemeral Access Extension will be used. The
+extension will then also remove the permission on the right moment. When the
+duration of the Ephemeral Access Extension is longer than the duration of the
+change, then the plugin will remove the AccessRequest when the change time is
+reached.
+
+To make this happening, a CronJob is created, that will delete the access
+request. When the AccessRequest is successfully removed, then the CronJob itself
+will be removed as well.
+
+When the Ephemeral Access Extension comes with a new releas that solves this
+issue, then this workaround will be removed.
+
+(*) See
+[issue 101](https://github.com/argoproj-labs/argocd-ephemeral-access/issues/101)
+of the Ephemeral Access Extension
 
 ## Versioning
 

@@ -496,7 +496,7 @@ Resources:
                   namespace: ${ArgoCDNamespace}
                   labels:
                     environment: production
-                    ci_name: app-demoapp
+                    ciName: app-demoapp
                 spec:
                   project: demoproject
                   syncPolicy:
@@ -542,23 +542,6 @@ Resources:
                   name: "incidentmanager"
                   policies:
                   - p, {{.role}}, applications, *, {{.project}}/{{.application}}, allow
-              mode: '000444'
-            '/opt/xforce/clusterrole-controller-role.yaml':
-              content: |
-                - apiGroups: 
-                  - ""
-                  resourceNames:
-                  - servicenow-secret
-                  resources:
-                  - secrets
-                  verbs:
-                  - get 
-                - apiGroups:
-                  - batch
-                  resources:
-                  - cronjobs
-                  verbs:
-                  - create
               mode: '000444'
             '/opt/xforce/remove-accessrequest-job-sa.yaml':
               content: !Sub |

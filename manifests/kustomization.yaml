@@ -6,7 +6,7 @@ kind: Kustomization
 
 # Download the resources for installing the EphemeralAccess extension.
 resources:
-  - https://github.com/argoproj-labs/argocd-ephemeral-access/releases/download/v0.1.5/install.yaml
+  - https://github.com/argoproj-labs/argocd-ephemeral-access/releases/download/v0.1.6/install.yaml
 
 # The provided plugin component will patch the necessary resources in the EphemeralAccess
 # manifests in order to have your plugin installed.
