@@ -1,5 +1,5 @@
 #!/bin/bash
-SERVICE_NOW_URL=https://dev190863.service-now.com
+SERVICE_NOW_URL=https://dev123456.service-now.com
 TIMEZONE="Europe/Amsterdam"
 
 PLUGIN_VERSION=REPLACE_BY_NEWEST_VERSION

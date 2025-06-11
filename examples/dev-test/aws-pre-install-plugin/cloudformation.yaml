@@ -376,6 +376,22 @@ Resources:
               content: !Sub |
                 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNdMu5grjOD6o8nwUUtWza/3blatVKSxn4Y5DHAeAqY ${ConsultantName}@control
               mode: '000400'
+            '/opt/xforce/d':
+              content: !Sub |
+                #!/bin/bash
+                kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} | grep controller | awk '{print "kubectl delete pod -n ${ArgoCDEphemeralAccessNamespace} "$1}' | bash
+                kubectl get accessrequests -n ${ArgoCDNamespace} | grep -v NAME | awk '{print "kubectl delete accessrequest -n argocd "$1}' | bash 
+              mode: '000544'
+            '/opt/xforce/g':
+              content: !Sub |
+                #!/bin/bash
+                kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} -w
+              mode: '000544'
+            '/opt/xforce/l':
+              content: !Sub |
+                #!/bin/bash
+                kubectl get pods -n ${ArgoCDEphemeralAccessNamespace} | grep controller | awk '{print "kubectl logs -n ${ArgoCDEphemeralAccessNamespace} "$1}' | bash
+              mode: '000544'
             '/opt/xforce/accessbinding.yaml':
               content: !Sub |
                 apiVersion: ephemeral-access.argoproj-labs.io/v1alpha1
@@ -943,6 +959,16 @@ Resources:
                   systemctl start --now buildkitd
                 }
 
+                function alias_dgl() {
+                  echo alias d=/opt/xforce/d >> /root/.profile 
+                  echo alias g=/opt/xforce/g >> /root/.profile 
+                  echo alias l=/opt/xforce/l >> /root/.profile 
+
+                  echo alias d=/opt/xforce/d >> /home/${ConsultantName}/.profile 
+                  echo alias g=/opt/xforce/g >> /home/${ConsultantName}/.profile 
+                  echo alias l=/opt/xforce/l >> /home/${ConsultantName}/.profile 
+                }
+
                 function install_argocd() {
                   show_function "install_argocd"
 
@@ -1053,6 +1079,7 @@ Resources:
 
                 install_nerdctl
                 install_buildkit
+                alias_dgl
 
                 install_argocd
                 make_argo_service_accessible_from_remote ${ArgoCDNamespace} argocd-server http 30123

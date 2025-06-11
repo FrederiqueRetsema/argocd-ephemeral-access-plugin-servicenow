@@ -17,7 +17,6 @@ sed -i "s/REPLACE_BY_NEWEST_VERSION/${TAG}/" /tmp/install.sh
 
 gh release create "${TAG}" --fail-on-no-commits --generate-notes --notes-file /tmp/HEADER.md --latest --title "${TAG}"
 gh release upload "${TAG}" /tmp/install.sh --clobber
-gh release upload "${TAG}" ./install.yaml --clobber
 gh release upload "${TAG}" ../LICENSE --clobber
 gh release upload "${TAG}" ../manifests/plugin/controller-patch.yaml --clobber
-gh release upload "${TAG}" ../manifests/plugin/clusterrole-controller-role.yaml --clobber
+gh release upload "${TAG}" ../manifests/plugin/install.yaml --clobber

@@ -7,7 +7,7 @@ HOSTED_ZONE_NAME="sandbox2.prutsforce.nl"                  # Without a dot, dot 
 CERTIFICATE_ID="867a7fae-455f-4e3c-8efd-7bf2d37fe990"      # *.sandbox2.prutsforce.nl
 DEFAULT_PASSWORD="ConclusionXforce2025!"
 SERVICENOW_SECRET_NAME="servicenow-secret"
-SERVICENOW_URL="https://dev190863.service-now.com"
+SERVICENOW_URL="https://dev123456.service-now.com"
 LOCAL_TIMEZONE="Europe/Amsterdam"
 ARGOCD_NAMESPACE="argocd"
 
