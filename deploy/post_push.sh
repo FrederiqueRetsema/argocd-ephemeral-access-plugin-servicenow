@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd ..
-find . -name *.sh -exec dos2unix {} \;
+find . -name "*.sh" -exec dos2unix {} \;
