@@ -52,8 +52,8 @@ jobs:
       run: |
         cfn-lint --version
         cfn-lint -t ./examples/aws/cloudformation.yaml
-        cfn-lint -t ./examples/dev-test-build-release/aws-dev/cloudformation.yaml
-        cfn-lint -t ./examples/dev-test-build-release/aws-pre-install-plugin/cloudformation.yaml
+        cfn-lint -t ./examples/dev-test/aws-dev/cloudformation.yaml
+        cfn-lint -t ./examples/dev-test/aws-pre-install-plugin/cloudformation.yaml
 
     - name: ShellCheck
       uses: ludeeus/action-shellcheck@master
