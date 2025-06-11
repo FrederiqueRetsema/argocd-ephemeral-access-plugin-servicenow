@@ -16,7 +16,7 @@ the Ephemeral Access Extension in the namespace `argocd-ephemeral-access`.
 For a demo CloudFormation template that deploys a three node Kubernetes
 environment with (just) the Ephemeral Access Extension in AWS you can use the
 CloudFormation template in the
-/examples/dev-and-test-of-plugin/aws-pre-install-plugin directory in this
+/examples/dev-test-build-release/aws-pre-install-plugin directory in this
 repository. You can follow along with the commands in this blog if you like.
 
 I included the manifest files in this directory, for further reference.

@@ -1,0 +1,127 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: argocd-ephemeral-access
+  name: controller-role
+rules:
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - appprojects
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - accessrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - accessrequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - accessrequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - roletemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - roletemplates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - roletemplates/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resourceNames:
+  - servicenow-secret
+  resources:
+  - secrets
+  verbs:
+  - get
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: remove-accessrequest-job-sa
+  namespace: argocd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: remove-accessrequest-job-role
+  namespace: argocd
+rules:
+- apiGroups:
+  - ephemeral-access.argoproj-labs.io
+  resources:
+  - accessrequests
+  verbs:
+  - delete
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: remove-accessrequest-job-role-binding
+  namespace: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: remove-accessrequest-job-role
+subjects:
+- kind: ServiceAccount
+  name: remove-accessrequest-job-sa

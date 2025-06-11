@@ -526,7 +526,7 @@ Resources:
                   namespace: ${ArgoCDNamespace}
                   labels:
                     environment: production
-                    ci_name: app-demoapp
+                    ciName: app-demoapp
                 spec:
                   project: demoproject
                   syncPolicy:
@@ -573,7 +573,7 @@ Resources:
                   policies:
                   - p, {{.role}}, applications, *, {{.project}}/{{.application}}, allow
               mode: '000444'
-            '/opt/xforce/clusterrole-controller-role.yaml':
+            '/opt/xforce/clusterrole-controller-role-patch.yaml':
               content: |
                 - apiGroups: 
                   - ""
@@ -1053,7 +1053,7 @@ Resources:
                   # There is a slash in the repository definition of AWS, therefore use ^ instead of (commonly used) / in sed s
                   sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^${EphemeralAccessPluginECRRepository.RepositoryUri}:latest^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
                   sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
+                  sed -i 's^servicenow-secret^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
                 }
 
                 function install_argocd() {
@@ -1147,7 +1147,7 @@ Resources:
 
                   # Patch will overwrite all other permissions, so just add the new permissions to the current role
                   kubectl get clusterrole controller-role -o yaml > /tmp/controller-role.yaml
-                  cat /tmp/controller-role.yaml /opt/xforce/clusterrole-controller-role.yaml > /tmp/controller-role.yaml.$$
+                  cat /tmp/controller-role.yaml /opt/xforce/clusterrole-controller-role-patch.yaml > /tmp/controller-role.yaml.$$
                   kubectl apply -f /tmp/controller-role.yaml.$$
 
                   # Pod needs to be restarted to take effect

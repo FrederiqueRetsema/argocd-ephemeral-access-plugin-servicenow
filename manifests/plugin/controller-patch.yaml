@@ -6,8 +6,6 @@ metadata:
 spec:
   template:
     spec:
-      imagePullSecrets:
-        - name: aws-ecr-secret
       initContainers:
         - name: plugin-installer
           image: CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE
@@ -23,15 +21,15 @@ spec:
             - name: EPHEMERAL_ACCESS_EXTENSION_NAMESPACE
               value: argocd-ephemeral-access
             - name: SERVICENOW_SECRET_NAME
-              value: CHANGE_THIS_WITH_THE_SERVICENOW_SECRET_NAME
+              value: servicenow-secret
             - name: SERVICENOW_URL
               value: CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL
             - name: TIME_WINDOW_CHANGES_DAYS
               value: "7"
             - name: TIMEZONE
-              value: Europe/Amsterdam
+              value: CHANGE_THIS_TO_THE_TIMEZONE_IN_SERVICE_NOW
             - name: CI_LABEL
-              value: ci_name
+              value: ciName
             - name: EPHEMERAL_PLUGIN_PATH
               value: /tmp/plugin/plugin
           volumeMounts:

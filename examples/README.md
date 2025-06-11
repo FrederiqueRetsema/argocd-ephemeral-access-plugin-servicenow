@@ -30,5 +30,5 @@ Extension (without the plugin).
 ## Test or enhance the plugin
 
 I'm using CloudFormation templates to test or enhance the plugin. You can find
-more information in [this README.md](./dev-and-test-of-plugin/README.md) in the
-dev-and-test-of-plugin directory.
+more information in [this README.md](./dev-test-build-release/README.md) in the
+dev-test-build-release directory.
