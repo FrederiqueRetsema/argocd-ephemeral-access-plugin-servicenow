@@ -30,6 +30,23 @@ function shell_check() {
     fi
 }
 
+function cfn_lint_cloudformation_file() {
+    CLOUDFORMATION_FILE=$1
+
+    cfn-lint "${CLOUDFORMATION_FILE}"
+    if test $? -ne 0
+    then
+        exit 1
+    fi
+}
+
+function cfn_lint() {
+    echo "cfn-lint..."
+    cfn_lint_cloudformation_file ./examples/aws/cloudformation.yaml
+    cfn_lint_cloudformation_file ./examples/dev-test/aws-dev/cloudformation.yaml
+    cfn_lint_cloudformation_file ./examples/dev-test/aws-pre-install-plugin/cloudformation.yaml
+}
+
 function go_lint() {
     echo "Go lint..."
 
@@ -56,6 +73,7 @@ cd ..
 
 markdown_lint
 shell_check
+cfn_lint
 go_lint
 unit_test
 

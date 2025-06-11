@@ -25,6 +25,9 @@ Parameters:
   ArgoCDNamespace:
     Type: String
     Default: argocd
+  ArgoCDEphemeralAccessNamespace:
+    Type: String
+    Default: argocd-ephemeral-access
   DemoSourceRepo:
     Type: String
     Default: https://github.com/FrederiqueRetsema/kubernetes-test-repo.git
