@@ -10,7 +10,7 @@ kubectl apply -f "https://github.com/FrederiqueRetsema/argocd-ephemeral-access-p
 
 cd /tmp || exit
 
-curl -O "https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/releases/download/${PLUGIN_VERSION}/${MANIFEST_FILENAME}"
+curl -OL "https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/releases/download/${PLUGIN_VERSION}/${MANIFEST_FILENAME}"
 
 sed -i "s^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${SERVICE_NOW_URL}^" ${MANIFEST_FILENAME}
 sed -i "s^CHANGE_THIS_TO_THE_TIMEZONE_IN_SERVICE_NOW^${TIMEZONE}^" "${MANIFEST_FILENAME}"
