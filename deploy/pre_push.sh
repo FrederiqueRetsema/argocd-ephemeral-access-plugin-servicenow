@@ -67,6 +67,13 @@ function unit_test() {
     fi
 }
 
+function unix_to_dos() {
+    echo "Unix to dos..."
+
+    find . -name "*.sh" -exec unix2dos {} \;
+}
+
+
 replace_servicenow_url
 
 cd ..
@@ -76,5 +83,6 @@ shell_check
 cfn_lint
 go_lint
 unit_test
+unix_to_dos
 
 cd - || exit
