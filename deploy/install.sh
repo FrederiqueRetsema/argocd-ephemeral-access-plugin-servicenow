@@ -7,6 +7,7 @@ PLUGIN_IMAGE=frederiquer/argocd-ephemeral-access-plugin-servicenow:${PLUGIN_VERS
 MANIFEST_FILENAME="controller-patch.yaml"
 
 kubectl apply -f "https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/releases/download/${PLUGIN_VERSION}/install.yaml"
+kubectl apply -f "https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/releases/download/${PLUGIN_VERSION}/controller-role.yaml"
 
 cd /tmp || exit
 

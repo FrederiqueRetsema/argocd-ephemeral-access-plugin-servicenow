@@ -1126,13 +1126,29 @@ Resources:
                   kubectl apply -n ${ArgoCDNamespace} -f /opt/xforce/roletemplate.yaml 
                 }
 
+                function add_ecr_access_to_controller_patch() {
+                  show_function "add_ecr_access_to_controller_patch"
+
+                  cd /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin
+                  INSERT_ABOVE_TEXT="initContainers"
+                  FILE_NAME="controller-patch.yaml"
+
+                  LINE_NUMBER=$(grep -n -i "$INSERT_ABOVE_TEXT" "$FILE_NAME" | awk -F':' '{print $1}')
+                  sed -i "$LINE_NUMBER""i \ \ \ \ \ \ imagePullSecrets:" "$FILE_NAME"
+
+                  LINE_NUMBER=$(( $LINE_NUMBER + 1 ))
+                  sed -i "$LINE_NUMBER""i \ \ \ \ \ \ - name: aws-ecr-secret"
+                  "$FILE_NAME"
+                }
+
                 function install_plugin() {
                   show_function "install_plugin"
 
+                  add_ecr_access_to_controller_patch
+
                   cd /clone/argocd-ephemeral-access-plugin-servicenow
                   kustomize build ./manifests | kubectl apply -f -
-
-                  kubectl apply -f /opt/xforce/remove-accessrequest-job-sa.yaml
+                  kubectl apply -f ./manifests/install.yaml
                 }
 
                 function patch_argocd_server() {

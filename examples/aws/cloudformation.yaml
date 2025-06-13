@@ -22,8 +22,6 @@ Parameters:
     Type: String
   CertificateId:
     Type: String
-  ServiceNowSecretName:
-    Type: String
   ServiceNowUrl:
     Type: String
   ArgoCDNamespace:
@@ -65,7 +63,7 @@ Parameters:
     Default: v0.1.6
   EphemeralAccessExtensionPluginServiceNowVersion:
     Type: String
-    Default: v0.0.2
+    Default: v0.0.3
   PrivateIpControl:
     Type: String
     Default: 172.31.0.10
@@ -995,17 +993,6 @@ Resources:
                   ln -s $(pwd)/kustomize /usr/local/bin/kustomize
                 }
 
-                function configure_plugin() {
-                  show_function "configure_plugin"
-
-                  cd /clone/argocd-ephemeral-access-plugin-servicenow/
-
-                  # There is a slash in the repository definition of AWS, therefore use ^ instead of (commonly used) / in sed s
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_PLUGIN_IMAGE^frederiquer/argocd-ephemeral-access-plugin-servicenow:${EphemeralAccessExtensionPluginServiceNowVersion}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^CHANGE_THIS_TO_POINT_TO_YOUR_SERVICENOW_URL^${ServiceNowUrl}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                  sed -i 's^servicenow-secret^${ServiceNowSecretName}^g' /clone/argocd-ephemeral-access-plugin-servicenow/manifests/plugin/controller-patch.yaml
-                }
-
                 function alias_dgl() {
                   echo alias d=/opt/xforce/d >> /root/.profile 
                   echo alias g=/opt/xforce/g >> /root/.profile 
@@ -1088,10 +1075,13 @@ Resources:
                 function install_plugin() {
                   show_function "install_plugin"
 
-                  cd /clone/argocd-ephemeral-access-plugin-servicenow
-                  kustomize build ./manifests | kubectl apply -f -
+                  cd /tmp
 
-                  kubectl apply -f /opt/xforce/remove-accessrequest-job-sa.yaml
+                  curl -OL https://github.com/FrederiqueRetsema/argocd-ephemeral-access-plugin-servicenow/releases/download/${EphemeralAccessExtensionPluginServiceNowVersion}/install.sh
+                  sed -i "s^https://dev123456.service-now.com^${ServiceNowUrl}^" install.sh
+                  bash install.sh
+
+                  cd -
                 }
 
                 function patch_argocd_server() {

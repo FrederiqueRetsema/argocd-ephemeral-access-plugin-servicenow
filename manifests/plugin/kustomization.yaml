@@ -3,4 +3,4 @@ kind: Component
 
 patches:
 - path: controller-patch.yaml
-- path: install.yaml
+- path: controller-role.yaml

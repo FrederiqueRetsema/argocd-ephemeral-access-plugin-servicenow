@@ -19,4 +19,5 @@ gh release create "${TAG}" --fail-on-no-commits --generate-notes --notes-file /t
 gh release upload "${TAG}" /tmp/install.sh --clobber
 gh release upload "${TAG}" ../LICENSE --clobber
 gh release upload "${TAG}" ../manifests/plugin/controller-patch.yaml --clobber
-gh release upload "${TAG}" ../manifests/plugin/install.yaml --clobber
+gh release upload "${TAG}" ../manifests/plugin/controller-role.yaml --clobber
+gh release upload "${TAG}" ../manifests/install.yaml --clobber
