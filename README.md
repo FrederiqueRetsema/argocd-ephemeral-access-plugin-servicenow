@@ -115,7 +115,8 @@ another label that is used by the ServiceNow plugin to know which CI should be
 checked and which changes should be requested.
 
 You can change settings if you like, you can look at all the settings on the
-![settings](./SETTINGS.md) page.
+[settings](./SETTINGS.md) page. The way to configure exclusion roles is also
+explained on this page.
 
 ## Determining the duration of the permission
 

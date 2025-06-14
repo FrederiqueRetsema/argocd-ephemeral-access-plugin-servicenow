@@ -26,6 +26,8 @@ Parameters:
     Type: String
   ServiceNowUrl:
     Type: String
+  LocalTimezone:
+    Type: String
   ArgoCDNamespace:
     Type: String
     Default: argocd
@@ -1137,8 +1139,9 @@ Resources:
                   sed -i "$LINE_NUMBER""i \ \ \ \ \ \ imagePullSecrets:" "$FILE_NAME"
 
                   LINE_NUMBER=$(( $LINE_NUMBER + 1 ))
-                  sed -i "$LINE_NUMBER""i \ \ \ \ \ \ - name: aws-ecr-secret"
-                  "$FILE_NAME"
+                  sed -i "$LINE_NUMBER""i \ \ \ \ \ \ - name: aws-ecr-secret" "$FILE_NAME"
+
+                  sed -i "s^CHANGE_THIS_TO_THE_TIMEZONE_IN_SERVICE_NOW^${LocalTimezone}^" "$FILE_NAME"
                 }
 
                 function install_plugin() {
@@ -1148,7 +1151,6 @@ Resources:
 
                   cd /clone/argocd-ephemeral-access-plugin-servicenow
                   kustomize build ./manifests | kubectl apply -f -
-                  kubectl apply -f ./manifests/install.yaml
                 }
 
                 function patch_argocd_server() {
