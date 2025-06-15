@@ -164,6 +164,15 @@ func (m *MockedLogger) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writ
 	return nil
 }
 
+func testResetEnvVar() {
+	_ = os.Setenv("SERVICENOW_URL", "")
+	_ = os.Setenv("TIMEZONE", "")
+	_ = os.Setenv("KUBERNETES_SERVICE_HOST", "")
+	_ = os.Setenv("KUBERNETES_SERVICE_PORT", "")
+	_ = os.Setenv("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "")
+	_ = os.Setenv("SERVICENOW_SECRET_NAME", "")
+}
+
 func testGetPlugin() (*ServiceNowPlugin, *MockedLogger) {
 	loggerObj := new(MockedLogger)
 
@@ -178,8 +187,8 @@ func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultWithEnvVar() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
-	serviceNowUrl = ""
 	_ = os.Setenv("SERVICENOW_URL", "https://example.com")
 
 	serviceNowUrl, errorText := p.getEnvVarWithoutDefault("SERVICENOW_URL", "Whatever")
@@ -193,10 +202,10 @@ func (s *HelperMethodsTestSuite) TestgetEnvVarWithoutDefaultWithoutEnvVar() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	expectedErrorText := "Expected error"
 
-	serviceNowUrl = ""
-	_ = os.Setenv("SERVICENOW_URL", "")
 	loggerObj.On("Error", expectedErrorText)
 
 	_, errorText := p.getEnvVarWithoutDefault("SERVICENOW_URL", expectedErrorText)
@@ -209,6 +218,8 @@ func (s *HelperMethodsTestSuite) TestGetEnvVarWithDefaultWithEnvVar() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	_ = os.Setenv("TIMEZONE", "Amsterdam/Europe")
 
 	timezone := p.getEnvVarWithDefault("TIMEZONE", "UTC")
@@ -221,8 +232,8 @@ func (s *HelperMethodsTestSuite) TestGetEnvVarWithDefaultWithoutEnvVar() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
-	_ = os.Setenv("TIMEZONE", "")
 	loggerObj.On("Debug", "Environment variable TIMEZONE is empty, assuming UTC")
 
 	timezone := p.getEnvVarWithDefault("TIMEZONE", "UTC")
@@ -234,6 +245,7 @@ func (s *HelperMethodsTestSuite) TestGetEnvVarWithDefaultWithoutEnvVar() {
 func (s *HelperMethodsTestSuite) TestGetLocalTime() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	time.Local = time.UTC
 	currentTime := time.Now()
@@ -272,6 +284,7 @@ func (s *HelperMethodsTestSuite) TestGetLocalTime() {
 func (s *HelperMethodsTestSuite) TestConvertTimeCorrectTime() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	result, errorText := p.convertTime("2025-05-15 18:14:13")
 	s.Equal(18, result.Hour(), "Hours match")
@@ -285,8 +298,9 @@ func (s *HelperMethodsTestSuite) TestConvertTimeCorrectTime() {
 func (s *HelperMethodsTestSuite) TestConvertTimeIncorrectTime() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
-	timeString := "current"
+	testResetEnvVar()
 
+	timeString := "current"
 	expectedErrorText := fmt.Sprintf("Error in converting %s to go Time: parsing time \"currentZ\" as \"2006-01-02T15:04:05Z07:00\": cannot parse \"currentZ\" as \"2006\"", timeString)
 
 	loggerObj.On("Error", expectedErrorText)
@@ -298,6 +312,7 @@ func (s *HelperMethodsTestSuite) TestConvertTimeIncorrectTime() {
 func (s *HelperMethodsTestSuite) TestConvertToIntSuccess() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	str := "1"
 	result := p.convertToInt("Test set", str, 0)
@@ -309,6 +324,7 @@ func (s *HelperMethodsTestSuite) TestConvertToIntSuccess() {
 func (s *HelperMethodsTestSuite) TestConvertToIntFail() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	expectedErrorText := "Incorrect value, test in Test set: should be a number, assuming 0"
 	loggerObj.On("Error", expectedErrorText)
@@ -327,6 +343,7 @@ func TestHelperMethods(t *testing.T) {
 func (s *K8SRelatedTestSuite) TestGetK8sConfigInUnittest() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	// Will always return error text because the tests are not run from within a Kubernetes cluster
 	unittest = true
@@ -340,6 +357,8 @@ func (s *K8SRelatedTestSuite) TestGetK8sConfigInUnittest() {
 func (s *K8SRelatedTestSuite) TestGetK8sConfigOutsideKubernetes() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	loggerObj.On("Error", mock.Anything) // Has different output local and in the pipeline, so just ignore
 
 	// Will always return error text because the tests are not run from within a Kubernetes cluster
@@ -359,6 +378,7 @@ func (s *K8SRelatedTestSuite) TestGetK8sConfigOutsideKubernetes() {
 func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecret() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	secretName := "generic-secret"
 	namespace := "generic-namespace"
@@ -382,6 +402,7 @@ func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecret() {
 func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecretSecretDoesntExist() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	secretName := "generic-secret"
 	namespace := "generic-namespace"
@@ -408,6 +429,7 @@ func (s *K8SRelatedTestSuite) TestGetCredentialsFromSecretSecretDoesntExist() {
 func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithOneExclusion() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	namespace := "argocd-ephemeral-access"
 	exclusionsString := "administrator"
@@ -426,6 +448,7 @@ func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithOneExclusion() {
 func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithTwoExclusions() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	namespace := "argocd-ephemeral-access"
 	exclusionsString := "administrator\nincidentmanager"
@@ -444,6 +467,7 @@ func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithTwoExclusions() 
 func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithConfigMapWithoutExclusions() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	namespace := "argocd-ephemeral-access"
 	exclusionsString := ""
@@ -462,6 +486,7 @@ func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithConfigMapWithout
 func (s *K8SRelatedTestSuite) TestGetExclusionsFromConfigMapWithoutConfigMap() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	namespace := "argocd-ephemeral-access"
 
@@ -483,10 +508,10 @@ func TestK8SRelated(t *testing.T) {
 func (s *PluginHelperMethodsTestSuite) TestGetGlobalVars() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	exampleUrl := "https://example.com"
 	_ = os.Setenv("SERVICENOW_URL", exampleUrl)
-	_ = os.Setenv("TIMEZONE", "")
 
 	secretName := "servicenow-secret"
 	ephemeralAccessPluginNamespace = "argocd-ephemeral-access"
@@ -513,6 +538,7 @@ func (s *PluginHelperMethodsTestSuite) TestGetGlobalVars() {
 func (s *PluginHelperMethodsTestSuite) TestGetGlobalVarsExclusionGroupsWithValue() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	exampleUrl := "https://example.com"
 	_ = os.Setenv("SERVICENOW_URL", exampleUrl)
@@ -538,6 +564,7 @@ func (s *PluginHelperMethodsTestSuite) TestGetGlobalVarsExclusionGroupsWithValue
 func (s *PluginHelperMethodsTestSuite) TestShowRequest() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var ar = new(api.AccessRequest)
 	var app = new(argocd.Application)
@@ -566,6 +593,7 @@ func testConvertTimeToString(t time.Time) string {
 func (s *PluginHelperMethodsTestSuite) TestCreateRevokeJobCorrect() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	namespace := "argocd"
 	accessRequestName := "test-ar"
@@ -609,6 +637,7 @@ func (s *PluginHelperMethodsTestSuite) TestCreateRevokeJobCorrect() {
 func (s *PluginHelperMethodsTestSuite) TestCreateRevokeJobFail() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	namespace := "argocd"
 	accessRequestName := "test-ar"
@@ -638,6 +667,7 @@ func (s *PluginHelperMethodsTestSuite) TestCreateRevokeJobFail() {
 func (s *PluginHelperMethodsTestSuite) TestDetermineDurationAndRealEndTimeChangeTimeWins() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var arDuration = 4 * time.Hour
 	var changeRemainingTime = 1 * time.Hour
@@ -654,6 +684,7 @@ func (s *PluginHelperMethodsTestSuite) TestDetermineDurationAndRealEndTimeChange
 func (s *PluginHelperMethodsTestSuite) TestDetermineDurationAndRealEndTimeArDurationWins() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var arDuration = 4 * time.Hour
 	var changeRemainingTime = (8 * time.Hour) + (time.Microsecond * 50)
@@ -672,6 +703,7 @@ func (s *PluginHelperMethodsTestSuite) TestDetermineDurationAndRealEndTimeArDura
 func (s *PluginHelperMethodsTestSuite) TestDetermineGrantedTextsChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	requesterName := "TestUser"
 	requestedRole := "admin"
@@ -717,6 +749,7 @@ func (s *PluginHelperMethodsTestSuite) TestDetermineGrantedTextsChange() {
 func (s *PluginHelperMethodsTestSuite) TestDetermineGrantedTextsExclusions() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	requesterName := "TestUser"
 	requestedRole := "admin"
@@ -747,6 +780,7 @@ func (s *PluginHelperMethodsTestSuite) TestDetermineGrantedTextsExclusions() {
 func (s *PluginHelperMethodsTestSuite) TestDenyRequest() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	reason := "whatever"
 	response, err := p.denyRequest(reason)
@@ -761,6 +795,7 @@ func (s *PluginHelperMethodsTestSuite) TestDenyRequest() {
 func (s *PluginHelperMethodsTestSuite) TestGrantRequest() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	reason := "whatever"
 	response, err := p.grantRequest(reason)
@@ -805,6 +840,7 @@ func setConfigMap(namespace string, configmapName string, exclusionsListName str
 func (s *PluginHelperMethodsTestSuite) TestGetServiceNowCredentials() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	secretName := "servicenow-secret"
 	namespace := "argocd-ephemeral-access"
@@ -875,6 +911,7 @@ func simulateSimpleHttpRequestWithStatusCodeRedirect(response string) (*httptest
 func (s *ServiceNowTestSuite) TestCheckAPIResultNormalResponse() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var resp = http.Response{
 		Status:     "200 OK",
@@ -892,6 +929,8 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultNormalResponse() {
 func (s *ServiceNowTestSuite) TestCheckAPIResultForbidden() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	expectedErrorText := "ServiceNow API changed"
 
 	var resp = http.Response{
@@ -908,6 +947,8 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultForbidden() {
 func (s *ServiceNowTestSuite) TestCheckAPIResultBadGateway() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	expectedErrorText := "ServiceNow API server is down"
 
 	var resp = http.Response{
@@ -924,6 +965,8 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultBadGateway() {
 func (s *ServiceNowTestSuite) TestCheckAPIResultBadGatewayWith200() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	expectedErrorText := "ServiceNow API server is down"
 
 	var resp = http.Response{
@@ -940,6 +983,8 @@ func (s *ServiceNowTestSuite) TestCheckAPIResultBadGatewayWith200() {
 func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponse() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	responseText := "{\"results\":[]}"
 
 	serviceNowUsername = "testUser"
@@ -967,6 +1012,8 @@ func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponse() {
 func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponseWithRedirect() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	responseText := "{\"results\":[]}"
 
 	serviceNowUsername = "testUser"
@@ -999,6 +1046,7 @@ func (s *ServiceNowTestSuite) TestgetFromServiceNowAPINormalResponseWithRedirect
 func (s *ServiceNowTestSuite) TestGetFromServiceNowAPIErrorInApiCall() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	responseText := "{\"results\":[]}"
 
@@ -1038,6 +1086,7 @@ func (s *ServiceNowTestSuite) TestGetFromServiceNowAPIErrorInApiCall() {
 func testPatchServiceNowAPINormalRequest(s *ServiceNowTestSuite, requestURI string, data string, responseText string) {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var responseMap = make(map[string]string)
 	responseMap[requestURI] = responseText
@@ -1068,6 +1117,7 @@ func (s *ServiceNowTestSuite) TestPatchServiceNowAPINormalRequest() {
 func (s *ServiceNowTestSuite) TestPatchServiceNowAPIErrorInApiCall() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUrl = "https://example.com"
 	// Incorrect requestURI containing the serviceNowUrl
@@ -1095,6 +1145,7 @@ func TestServiceNowMethods(t *testing.T) {
 func (s *ServiceNowTestSuite) TestGetCINameFilled() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var app = new(argocd.Application)
 	var m = make(map[string]string)
@@ -1115,6 +1166,7 @@ func (s *ServiceNowTestSuite) TestGetCINameFilled() {
 func (s *ServiceNowTestSuite) TestGetCINameEmpty() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var app = new(argocd.Application)
 	var m map[string]string
@@ -1149,6 +1201,7 @@ func testPrepareGetCI(t *testing.T, ciName string, responseText string) (*httpte
 func (s *CITestSuite) TestGetCIOneCI() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	ciName := "app-demoapp"
 	responseText := fmt.Sprintf(`{"result":[{"install_status":"1", "name":"%s", "sys_id": "5"}]}`, ciName)
@@ -1171,6 +1224,7 @@ func (s *CITestSuite) TestGetCIOneCI() {
 func (s *CITestSuite) TestGetCITwoCIs() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	ciName := "app-demoapp"
 
@@ -1194,6 +1248,7 @@ func (s *CITestSuite) TestGetCITwoCIs() {
 func (s *CITestSuite) TestGetCINoCI() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	responseText := "{\"result\":[]}"
 	expectedErrorText := "No CI with name app-demoapp found"
@@ -1224,6 +1279,7 @@ func (s *CITestSuite) TestGetCINoCI() {
 func (s *ServiceNowTestSuite) TestGetCIServerDown() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	expectedErrorText := "ServiceNow API server is down"
 	responseText := "<html><body>Server down!</body></html>"
@@ -1254,6 +1310,7 @@ func (s *ServiceNowTestSuite) TestGetCIServerDown() {
 func (s *ServiceNowTestSuite) TestGetCINoJSON() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	expectedErrorText := "Error in json.Unmarshal: invalid character '<' looking for beginning of value (<Result/>)"
 	responseText := "<Result/>"
@@ -1307,6 +1364,7 @@ func getExpectedRequestURI(cmdb_ci string, startDate time.Time, endDate time.Tim
 func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow0Days() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	cmdbCi := "id1"
 	sysparmOffset := 0
@@ -1325,6 +1383,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow0Days() {
 func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow1Days() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	cmdbCi := "id2"
 	sysparmOffset := 0
@@ -1343,6 +1402,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow1Days() {
 func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow7Days() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	cmdbCi := "id3"
 	sysparmOffset := 0
@@ -1361,6 +1421,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindow7Days() {
 func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindowDifferentSysparmOffset() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	cmdbCi := "cioffset"
 	sysparmOffset := 5
@@ -1379,6 +1440,7 @@ func (s *ChangeTestSuite) TestGetChangeRequestURIDateWindowDifferentSysparmOffse
 func (s *ChangeTestSuite) TestGetChangesOneChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1410,6 +1472,7 @@ func (s *ChangeTestSuite) TestGetChangesOneChange() {
 func (s *ChangeTestSuite) TestGetChangesTwoChanges() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1448,6 +1511,7 @@ func (s *ChangeTestSuite) TestGetChangesExactAPIWindowSize() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1485,6 +1549,7 @@ func (s *ChangeTestSuite) TestGetChangesExactAPIWindowSize() {
 func (s *ChangeTestSuite) TestGetChangesNoChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1517,6 +1582,7 @@ func (s *ChangeTestSuite) TestGetChangesNoChange() {
 func (s *ChangeTestSuite) TestGetChangesNoJSON() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	responseText := "!"
 	expectedErrorText := "Error in json.Unmarshal: invalid character '!' looking for beginning of value (!)"
@@ -1548,6 +1614,7 @@ func (s *ChangeTestSuite) TestGetChangesNoJSON() {
 func (s *ChangeTestSuite) TestGetChangesAPIServerDown() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1578,6 +1645,7 @@ func (s *ChangeTestSuite) TestGetChangesAPIServerDown() {
 func (s *ChangeTestSuite) TestParseChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var change_servicenow = ChangeServiceNow{
 		Type:             "1",
@@ -1616,6 +1684,7 @@ func TestChangeMethods(t *testing.T) {
 func testAllowedCIStatus(s *CheckCITestSuite, status string) {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var ci = CmdbServiceNow{
 		InstallStatus: status,
@@ -1631,6 +1700,7 @@ func testAllowedCIStatus(s *CheckCITestSuite, status string) {
 func testNotAllowedCIStatus(s *CheckCITestSuite, status string) {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	var ci = CmdbServiceNow{
 		InstallStatus: status,
@@ -1670,6 +1740,7 @@ func TestCheckCI(t *testing.T) {
 func (s *CheckChangeTestSuite) TestCheckChangeCorrectTime() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	timezone = "UTC"
 	currentTime := time.Now()
@@ -1698,6 +1769,7 @@ func (s *CheckChangeTestSuite) TestCheckChangeCorrectTime() {
 func testChangeTimeIncorrect(s *CheckChangeTestSuite, currentTime time.Time, startDate time.Time, endDate time.Time, situation string) {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	timezone = "UTC"
 
@@ -1749,6 +1821,8 @@ func TestCheckChange(t *testing.T) {
 func (s *PluginHelperMethodsTestSuite) TestProcessCIWithValidCI() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	loggerObj.On("Debug", mock.Anything)
 
 	serviceNowUsername = "testUser"
@@ -1774,6 +1848,7 @@ func (s *PluginHelperMethodsTestSuite) TestProcessCIWithValidCI() {
 func (s *PluginHelperMethodsTestSuite) TestProcessCIWithoutValidCI() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1840,6 +1915,7 @@ func getTestChangeRequestURI(cmdbCi string, sysparmOffset int) string {
 func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -1880,6 +1956,7 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithChange() {
 func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithoutChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	timezone = "UTC"
 	serviceNowUsername = "testUser"
@@ -1912,6 +1989,7 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithoutChange() {
 func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithOneInvalidChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	timezone = "UTC"
 	serviceNowUsername = "testUser"
@@ -1944,6 +2022,7 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesWithOneInvalidChange() 
 func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsWithValidChange() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -2000,6 +2079,7 @@ func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsWithValidC
 func (s *PluginHelperMethodsTestSuite) TestProcessChangesTwoAPIWindowsErrorInSecondBatch() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	serviceNowUsername = "testUser"
 	serviceNowPassword = "testPassword"
@@ -2076,6 +2156,8 @@ func (s *ServiceNowTestSuite) TestPostNote() {
 func (s *PublicMethodsTestSuite) TestInit() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	loggerObj.On("Debug", "This is a call to the Init method")
 
 	result := p.Init()
@@ -2086,8 +2168,6 @@ func (s *PublicMethodsTestSuite) TestInit() {
 
 func configureTestEnvWithTestData(t *testing.T, loggerObj *MockedLogger, installStatus string, addChange bool) *httptest.Server {
 	_ = os.Setenv("TIMEZONE", "UTC")
-	_ = os.Setenv("EPHEMERAL_ACCESS_EXTENSION_NAMESPACE", "")
-	_ = os.Setenv("SERVICENOW_SECRET_NAME", "")
 	_ = os.Setenv("SERVICENOW_URL", "https://example.com")
 
 	secretName := "servicenow-secret"
@@ -2137,6 +2217,7 @@ func configureTestEnvWithTestData(t *testing.T, loggerObj *MockedLogger, install
 func (s *PublicMethodsTestSuite) TestGrantAccess() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
 	defer server.Close()
@@ -2161,6 +2242,7 @@ func (s *PublicMethodsTestSuite) TestGrantAccessExclusionRole() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
 	defer server.Close()
@@ -2185,6 +2267,7 @@ func (s *PublicMethodsTestSuite) TestGrantAccessExclusionRole() {
 func (s *PublicMethodsTestSuite) TestGrantAccessNoCIName() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
 	defer server.Close()
@@ -2210,6 +2293,7 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoServiceNowURL() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	server := configureTestEnvWithTestData(t, loggerObj, correctCMDBInstallStatus, addChange)
 	defer server.Close()
@@ -2232,6 +2316,7 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoServiceNowURL() {
 func (s *PublicMethodsTestSuite) TestGrantAccessIncorrectCI() {
 	t := s.T()
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
 
 	ar, app := getTestARApp()
 	invalidInstallStatus := "-1"
@@ -2255,6 +2340,8 @@ func (s *PublicMethodsTestSuite) TestGrantAccessNoChange() {
 	t := s.T()
 
 	p, loggerObj := testGetPlugin()
+	testResetEnvVar()
+
 	ar, app := getTestARApp()
 
 	dontAddChange := !addChange
