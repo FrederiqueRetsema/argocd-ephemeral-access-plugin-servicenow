@@ -9,4 +9,4 @@ then
 	exit 1
 fi
 
-find ../* -type f -exec sed -i "s^https://dev[0-9]*.service-now.com^${REPLACE_BY}^" {} \;
+find ../* -type f -name "*.sh" -exec sed -i "s^https://dev[0-9]*.service-now.com^${REPLACE_BY}^" {} \;

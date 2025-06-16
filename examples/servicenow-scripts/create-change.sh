@@ -4,7 +4,7 @@ URL=$1
 USERNAME=$2
 PASSWORD=$3
 
-CHANGE_NUMBER="CHG0080005"
+CHANGE_NUMBER="CHG0080011"
 CMDB_CI="app-demoapp"
 SHORT_DESCRIPTION="Test Ephemeral Access Plugin for ServiceNow"
 
