@@ -81,7 +81,7 @@ jobs:
           tags: frederiquer/argocd-ephemeral-access-plugin-servicenow:${{ github.sha }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@0.32.0
         with:
           image-ref: 'frederiquer/argocd-ephemeral-access-plugin-servicenow:${{ github.sha }}'
           format: 'table'
